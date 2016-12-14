@@ -1,0 +1,392 @@
+<html>
+<head>
+    <title>Tone Board</title>
+
+    <style>
+	    button {
+		    background-color: #444;
+		    border: 1px solid #333;
+		    color: white;
+		    text-align: center;
+		    text-decoration: none;
+		    display: inline-block;
+		    font-size: 12px;
+		}
+	</style>
+</head>
+<body bgcolor='#222'>
+    <script>
+    	var frequencyTable = [
+		    55.000,
+			58.270,
+			61.735,
+			65.406,
+			69.296,
+			73.416,
+			77.782,
+			82.407,
+			87.307,
+			92.499,
+			97.999,
+			103.826
+		];
+
+		var notesByName = {
+			A: frequencyTable[0],
+			As: frequencyTable[1],
+			Bb: frequencyTable[1],	
+			B: frequencyTable[2],
+			C: frequencyTable[3],			
+			Cs: frequencyTable[4],
+			Db: frequencyTable[4],			
+			D: frequencyTable[5],			
+			Ds: frequencyTable[6],
+			Eb: frequencyTable[6],			
+			E: frequencyTable[7],			
+			F: frequencyTable[8],			
+			Fs: frequencyTable[9],
+			Gb: frequencyTable[9],			
+			G: frequencyTable[10],			
+			Gs: frequencyTable[11],
+			Ab: frequencyTable[11]
+		};
+
+		var scalesByName = {			
+			bluesPentaCMinor : 	[ notesByName.C, notesByName.Eb, notesByName.F, notesByName.Fs, notesByName.G, notesByName.Bb, notesByName.C ],
+			bluesPentaCsMinor : [ notesByName.Cs, notesByName.E, notesByName.Fs, notesByName.G, notesByName.Gs, notesByName.B, notesByName.Cs ],
+			bluesPentaDMinor : 	[ notesByName.D, notesByName.F, notesByName.G, notesByName.Gs, notesByName.A, notesByName.C, notesByName.D ],
+			bluesPentaDsMinor : [ notesByName.Ds, notesByName.Fs, notesByName.Gs, notesByName.A, notesByName.As, notesByName.Cs, notesByName.Ds ],
+			bluesPentaEMinor :  [ notesByName.E, notesByName.G, notesByName.A, notesByName.As, notesByName.B, notesByName.D, notesByName.E ]
+		};
+/*
+F: F, Ab, Bb, B, C, Eb, F
+F#/Gb: F#, A, B, C, C#, E, F#
+G: G, Bb, C, C#, D, F, G
+G#/Ab: G#, B, C#, D, D#, F#, G#
+A: A, C, D, D#, E, G, A
+A#/Bb: A#, C#, D#, E, E#, G#, A#
+B: B, D, E, F, F#, A, B 
+*/
+    	// context //
+
+		var allButtons = [];
+	    var AudioContext = window.AudioContext || window.webkitAudioContext;
+		var audio = new AudioContext();
+
+		var compressor = audio.createDynamicsCompressor();
+		compressor.threshold.value = -50;
+		compressor.knee.value = 40;
+		compressor.ratio.value = 12;
+		compressor.reduction.value = -20;
+		compressor.attack.value = 0;
+		compressor.release.value = 0.25;
+		compressor.connect(audio.destination);
+		audio.compressorNode = compressor;
+
+		// Note
+
+		function Note(audio, noteList) {
+			this.beep = false;
+			this.playing = false;
+
+			//audio
+			this.oscillator = audio.createOscillator();
+			this.oscillator.frequency.value = 440;
+			this.oscillator.type = "sine";
+			this.oscillator.start();
+
+			this.gainNode = audio.createGain();				
+			this.oscillator.connect( this.gainNode );
+
+			noteList[noteList.length] = this;
+
+			//degrade gain
+			window.setInterval(
+				function() { 					
+					this.gainNode.gain.value *= 0.75;
+				}.bind(this),
+				50
+			);
+		}
+
+		Note.prototype.attach = function(parentElement, x, y, w, h) {
+			this.element = document.createElement("button");
+			this.element.style = {};
+			this.element.style.position = "absolute";
+			this.element.style.left = x;
+			this.element.style.top =  y;
+			this.element.style.width = w;
+			this.element.style.height = h;
+
+			this.element.onclick=function() {
+			    this.toggle();
+			}.bind(this);
+
+			this.element.onmouseenter=function(ev) {
+				if(ev.buttons == 1) this.toggle();
+			}.bind(this);
+
+			parentElement.appendChild(this.element);
+		}
+
+		Note.prototype.setWaveform = function(form) {
+			this.oscillator.type = form;
+		}
+
+		Note.prototype.setFrequency = function(hz) {
+			this.oscillator.frequency.value = hz;
+		}
+
+		Note.prototype.clear = function () {
+			this.beep = false;
+			this.element.style.backgroundColor = "#444";
+		}
+
+		Note.prototype.toggle = function () {
+			this.beep = !this.beep;
+			if(this.beep)	this.element.style.backgroundColor = "#666";
+			else 			this.element.style.backgroundColor = "#444";
+		}
+
+		Note.prototype.play = function () {
+			if(this.beep) {
+				this.gainNode.connect(audio.compressorNode);
+				this.gainNode.gain.value = 0.5;
+				this.playing = true;
+				this.element.style.backgroundColor = "#FFF";
+				window.setTimeout(this.pause.bind(this), 1000);
+			}
+		}
+
+		Note.prototype.pause = function () {
+			if(this.playing) {
+				this.gainNode.disconnect(audio.compressorNode);				
+				this.playing = false;
+			}
+			if(this.beep)	this.element.style.backgroundColor = "#666";
+			else 			this.element.style.backgroundColor = "#444";
+		}
+
+		// Chord
+
+		function Chord(audio, parentElement, chordList, noteList) {
+			this.noteCount = 12;
+			this.size = 40;
+			this.padding = 4;
+
+			var index = chordList.length;
+			chordList[index] = this;
+
+			//DOM
+			this.element = document.createElement("div");
+			this.element.style = {};
+			this.element.style.position = "absolute";
+			this.element.style.top = 0;
+			this.element.style.left = (this.size + this.padding)*index;
+			this.element.style.height = this.noteCount * (this.size + this.padding);
+			parentElement.appendChild(this.element);
+
+			this.notes = [];
+
+			//notes
+			for(var i=0; i<7; ++i) {
+				this.notes[i] = new Note(audio, noteList);
+				this.notes[i].attach(this.element, 0, i*(this.size + this.padding), this.size, this.size);
+			}
+
+			//playback and timing
+			this.next = null;
+			this.timeoutID = -1;
+		}
+
+		Chord.prototype.setScale=function(scale, octive) {
+			for(var i=0; i<this.notes.length && i<scale.length; ++i) {
+				this.notes[i].setFrequency(scale[i] * octive);
+			}
+		}
+
+		Chord.prototype.play=function(delay) {
+			for(var i=0; i<this.notes.length; ++i) {
+				this.notes[i].play();				
+			}
+			if(this.next) this.timeoutID = window.setTimeout(this.next.play.bind(this.next, delay), delay);
+		}
+
+		Chord.prototype.stop=function(delay) {
+			if(this.timeoutID != -1 ) {
+				window.clearTimeout( this.timeoutID );
+				this.timeoutID = -1;
+			}
+		}
+
+		Chord.prototype.link=function(next) {
+			this.next = next;
+		}
+
+		/// initialization
+		function ToneMatrix(x, y) {
+			var allNotes = [];
+			var allChords = [];
+
+			var div = document.createElement("div");
+	    	div.style = {};
+	    	div.style.position = "absolute";
+	    	div.style.left = x;
+	    	div.style.top = y;
+	    	document.body.appendChild(div);
+
+	    	var prev = undefined;
+			for(var i=0; i<12; ++i) {
+				var chord = new Chord(audio, div, allChords, allNotes);
+				if(prev) prev.link(chord);
+				prev = chord;
+			}
+			allChords[allChords.length-1].link(allChords[0]);
+
+			var padding = allChords[0].padding;
+			var size = allChords[0].size;
+			var delayTime = 200;
+
+			var delayField = document.createElement("input");
+			delayField.type = "number";
+			delayField.value = delayTime;
+			delayField.style = {};
+			delayField.style.position = "absolute";
+			delayField.style.left = allChords.length * (size + padding);
+			delayField.style.top = 0;
+			delayField.style.width = "100px";
+			delayField.style.height = size;
+			div.appendChild(delayField);
+
+			var scaleField = document.createElement("select");		
+			scaleField.style = {};
+			scaleField.style.position = "absolute";
+			scaleField.style.left = allChords.length * (size + padding) + 100 + padding;
+			scaleField.style.top = 0;
+			scaleField.style.width = "150px";
+			scaleField.style.height = size;		
+			{
+				var opt = document.createElement("option");
+				opt.value = "bluesPentaCMinor";
+				opt.innerHTML = "Blues C Minor";
+				scaleField.appendChild(opt);
+
+				opt = document.createElement("option");
+				opt.value = "bluesPentaCsMinor";
+				opt.innerHTML = "Blues C# Minor";
+				scaleField.appendChild(opt);
+
+				opt = document.createElement("option");
+				opt.value = "bluesPentaDMinor";
+				opt.innerHTML = "Blues D Minor";
+				scaleField.appendChild(opt);
+
+				opt = document.createElement("option");
+				opt.value = "bluesPentaDsMinor";
+				opt.innerHTML = "Blues D# Minor";
+				scaleField.appendChild(opt);
+
+				opt = document.createElement("option");
+				opt.value = "bluesPentaEMinor";
+				opt.innerHTML = "Blues E Minor";
+				scaleField.appendChild(opt);
+			}
+			div.appendChild(scaleField);
+
+			var instrumentField = document.createElement("select");		
+			instrumentField.style = {};
+			instrumentField.style.position = "absolute";
+			instrumentField.style.left = allChords.length * (size + padding) + 100 + padding;
+			instrumentField.style.top = size + padding;
+			instrumentField.style.width = "150px";
+			instrumentField.style.height = size;		
+			{
+				var opt = document.createElement("option");
+				opt.value = "sine";
+				opt.innerHTML = "Sine";
+				instrumentField.appendChild(opt);
+
+				opt = document.createElement("option");
+				opt.value = "square";
+				opt.innerHTML = "Square";
+				instrumentField.appendChild(opt);
+
+				opt = document.createElement("option");
+				opt.value = "triangle";
+				opt.innerHTML = "Triangle";
+				instrumentField.appendChild(opt);
+
+				opt = document.createElement("option");
+				opt.value = "sawtooth";
+				opt.innerHTML = "Sawtooth";
+				instrumentField.appendChild(opt);
+			}
+			div.appendChild(instrumentField);
+			
+			var play = document.createElement("button");
+			play.style = {};
+			play.style.position = "absolute";
+			play.style.left = allChords.length * (size + padding);
+			play.style.top = size + padding;
+			play.style.width = "100px";
+			play.style.height = "100px";
+			play.innerHTML = "Play";
+			div.appendChild(play);
+
+			var stop = document.createElement("button");
+			stop.style = {};
+			stop.style.position = "absolute";
+			stop.style.left = allChords.length * (size + padding);
+			stop.style.top = size + 100 + padding * 2;
+			stop.style.width = "100px";
+			stop.style.height = "100px";
+			stop.innerHTML = "Stop";
+			div.appendChild(stop);
+
+			var clear = document.createElement("button");
+			clear.style = {};
+			clear.style.position = "absolute";
+			clear.style.left = allChords.length * (size + padding) +  100 + padding;
+			clear.style.top = size + 100 + padding * 2;
+			clear.style.width = "100px";
+			clear.style.height = "100px";
+			clear.innerHTML = "Clear";
+			div.appendChild(clear);
+
+
+			stop.onclick=function () {			
+				for( var i=0; i<allChords.length; ++i ) {
+					allChords[i].stop();
+				}
+			}
+
+			play.onclick=function () {
+				for(var i=0; i<allChords.length; ++i) {
+					allChords[i].stop();
+					allChords[i].setScale(scalesByName[scaleField.value], 5);
+				}
+
+				for( var i=0; i<allNotes.length; ++i ) {
+					allNotes[i].setWaveform(instrumentField.value);
+				}
+
+				delayTime = delayField.value;
+				if(delayTime < 100) delayTime = delayField.value = 100;
+
+				allChords[0].play(delayTime);
+			}
+
+			clear.onclick=function () {			
+				for( var i=0; i<allNotes.length; ++i ) {
+					allNotes[i].clear();
+				}
+			}
+
+			for(var i=0; i<allChords.length; ++i) {
+				allChords[i].setScale( scalesByName.bluesPentaCsMinor, 5 );
+			}
+		}
+		var tm0 = new ToneMatrix("25%","25%");
+	</script>
+</body>
+</html>
