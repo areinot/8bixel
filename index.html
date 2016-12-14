@@ -1,7 +1,6 @@
 <html>
 <head>
-    <title>Tone Board</title>
-
+    <title>Tone Board</title>    
     <style>
 	    button {
 		    background-color: #444;
@@ -14,9 +13,9 @@
 		}
 	</style>
 </head>
-<body bgcolor='#222'>
+<body bgcolor='#222'>	
 	<script>
-    	var frequencyTable = [
+		var frequencyTable = [
 		    55.000,
 			58.270,
 			61.735,
@@ -66,15 +65,6 @@
 			}
 		}
 		
-/*
-F: F, Ab, Bb, B, C, Eb, F
-F#/Gb: F#, A, B, C, C#, E, F#
-G: G, Bb, C, C#, D, F, G
-G#/Ab: G#, B, C#, D, D#, F#, G#
-A: A, C, D, D#, E, G, A
-A#/Bb: A#, C#, D#, E, E#, G#, A#
-B: B, D, E, F, F#, A, B 
-*/
     	// context //
 
 		var allButtons = [];
@@ -91,6 +81,10 @@ B: B, D, E, F, F#, A, B
 		compressor.connect(audio.destination);
 		audio.compressorNode = compressor;
 
+		audio.masterGainNode = audio.createGain();
+		audio.masterGainNode.gain = 1.0;
+		audio.masterGainNode.connect(audio.compressorNode);
+
 		
 		// Note
 
@@ -102,14 +96,9 @@ B: B, D, E, F, F#, A, B
 			this.halflife = 50;
 
 			//audio
-			this.oscillator = audio.createOscillator();
-			this.oscillator.frequency.value = 440;
-			this.oscillator.type = "sine";
-			this.oscillator.start();
-
 			this.gainNode = audio.createGain();				
-			this.oscillator.connect( this.gainNode );
-
+			
+			this.buildOscillator(audio);
 			if(noteList) noteList[noteList.length] = this;
 
 			//degrade gain
@@ -119,6 +108,23 @@ B: B, D, E, F, F#, A, B
 				}.bind(this),
 				50
 			);
+		}
+
+		Note.prototype.buildOscillator = function (audio) {
+			var osc = audio.createOscillator();
+
+			if(this.oscillator) {
+				osc.frequency.value = this.oscillator.frequency.value;
+				osc.type = this.oscillator.type;
+				this.oscillator.disconnect( this.gainNode );
+				this.oscillator.stop();				
+			} else {				
+				osc.frequency.value = 440;
+				osc.type = "sine";
+			}
+			this.oscillator = osc;
+			this.oscillator.start();
+			this.oscillator.connect( this.gainNode );
 		}
 
 		Note.prototype.attach = function(parentElement, x, y, w, h) {
@@ -162,7 +168,7 @@ B: B, D, E, F, F#, A, B
 
 		Note.prototype.play = function () {
 			if(this.beep) {
-				this.gainNode.connect(audio.compressorNode);
+				this.gainNode.connect(audio.masterGainNode);
 				this.gainNode.gain.value = 0.5;
 				this.playing = true;
 				this.element.style.backgroundColor = "#FFF";
@@ -172,7 +178,7 @@ B: B, D, E, F, F#, A, B
 
 		Note.prototype.pause = function () {
 			if(this.playing) {
-				this.gainNode.disconnect(audio.compressorNode);				
+				this.gainNode.disconnect(audio.masterGainNode);				
 				this.playing = false;
 			}
 			if(this.beep)	this.element.style.backgroundColor = "#666";
@@ -185,6 +191,7 @@ B: B, D, E, F, F#, A, B
 			//this.noteCount = 12;
 			this.size = 40;
 			this.padding = 4;
+			this.onFinished = null;
 
 			var index = chordList.length;
 			chordList[index] = this;
@@ -201,7 +208,7 @@ B: B, D, E, F, F#, A, B
 			this.notes = [];
 
 			//notes
-			for(var i=0; i<7; ++i) {
+			for(var i=0; i<14; ++i) {
 				this.notes[i] = new Note(audio, noteList);
 				this.notes[i].attach(this.element, 0, i*(this.size + this.padding), this.size, this.size);
 			}
@@ -214,6 +221,7 @@ B: B, D, E, F, F#, A, B
 		Chord.prototype.setScale=function(scale, octive) {
 			for(var i=0; i<7; ++i) {
 				this.notes[i].setFrequency(scale[6-i] * octive);
+				this.notes[i+7].setFrequency(scale[6-i] * (octive-1));
 			}
 		}
 
@@ -222,6 +230,7 @@ B: B, D, E, F, F#, A, B
 				this.notes[i].play();				
 			}
 			if(this.next) this.timeoutID = window.setTimeout(this.next.play.bind(this.next, delay), delay);
+			else if(this.onFinished) window.setTimeout(this.onFinished, delay);
 		}
 
 		Chord.prototype.stop=function(delay) {
@@ -253,8 +262,7 @@ B: B, D, E, F, F#, A, B
 				if(prev) prev.link(chord);
 				prev = chord;
 			}
-			allChords[allChords.length-1].link(allChords[0]);
-
+			
 			var padding = allChords[0].padding;
 			var size = allChords[0].size;
 			var delayTime = 200;
@@ -334,6 +342,32 @@ B: B, D, E, F, F#, A, B
 				instrumentField.appendChild(opt);
 			}
 			div.appendChild(instrumentField);
+
+			var loopField = document.createElement("input");
+			loopField.type = "checkbox";
+			loopField.checked = false;
+
+			loopField.style = {};
+			loopField.style.color  = "#fff";
+			loopField.style.position = "absolute"
+			loopField.style.left = allChords.length * (size + padding) + 100 + padding;
+			loopField.style.top = 2.0 * (size + padding) + 8;
+			loopField.style.width = 30;
+			loopField.style.height = 30;
+			div.appendChild(loopField);
+
+			var text = document.createElement("div");
+			text.innerHTML = "Loop Playback";
+			text.style = {};
+			text.style.fontFamily = "arial";
+			text.style.color  = "#fff";
+			text.style.position = "absolute"
+			text.style.left = allChords.length * (size + padding) + 100 + padding + 40;
+			text.style.top = 2.0 * (size + padding) + 18;
+			text.style.width = 160;
+			text.style.height = 30;
+			
+			div.appendChild(text);
 			
 			var play = document.createElement("button");
 			play.style = {};
@@ -366,6 +400,35 @@ B: B, D, E, F, F#, A, B
 			div.appendChild(clear);
 
 
+			delayField.onchange=function () {
+				delayTime = delayField.value;
+				if(delayTime < 60) delayTime = delayField.value = 60;
+				stop.onclick(); // requires restart of playing
+			}
+
+			instrumentField.onchange=function () {
+				for( var i=0; i<allNotes.length; ++i ) {
+					allNotes[i].setWaveform(instrumentField.value);
+				}
+			}
+
+			scaleField.onchange=function () {
+				for(var i=0; i<allChords.length; ++i) {
+					allChords[i].setScale(scalesByName[scaleField.value], 5);
+				}
+				for( var i=0; i<allNotes.length; ++i ) {
+					allNotes[i].buildOscillator(audio);
+				}
+			}
+
+			loopField.onclick=function () {
+				if(loopField.checked) {
+					allChords[allChords.length-1].link(allChords[0]);
+				} else {
+					allChords[allChords.length-1].link(null);
+				}
+			}
+
 			stop.onclick=function () {			
 				for( var i=0; i<allChords.length; ++i ) {
 					allChords[i].stop();
@@ -375,16 +438,7 @@ B: B, D, E, F, F#, A, B
 			play.onclick=function () {
 				for(var i=0; i<allChords.length; ++i) {
 					allChords[i].stop();
-					allChords[i].setScale(scalesByName[scaleField.value], 5);
 				}
-
-				for( var i=0; i<allNotes.length; ++i ) {
-					allNotes[i].setWaveform(instrumentField.value);
-				}
-
-				delayTime = delayField.value;
-				//if(delayTime < 100) delayTime = delayField.value = 100;
-
 				allChords[0].play(delayTime);
 			}
 
@@ -398,7 +452,7 @@ B: B, D, E, F, F#, A, B
 				allChords[i].setScale( scalesByName.bluesPentaCsMinor, 5 );
 			}
 		}
-		var tm0 = new ToneMatrix("25%","25%", 24);
+		var tm0 = new ToneMatrix("25%", "8px", 24);
 
 
 		div = document.createElement("div");
