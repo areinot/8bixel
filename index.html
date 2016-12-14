@@ -15,7 +15,7 @@
 	</style>
 </head>
 <body bgcolor='#222'>
-    <script>
+	<script>
     	var frequencyTable = [
 		    55.000,
 			58.270,
@@ -58,6 +58,14 @@
 			bluesPentaDsMinor : [ notesByName.Ds, notesByName.Fs, notesByName.Gs, notesByName.A, notesByName.As, notesByName.Cs, notesByName.Ds ],
 			bluesPentaEMinor :  [ notesByName.E, notesByName.G, notesByName.A, notesByName.As, notesByName.B, notesByName.D, notesByName.E ]
 		};
+
+		for(var s in scalesByName) {
+			var list = scalesByName[s];
+			for(var i=1; i<list.length; ++i) {
+				while(list[i] < list[i-1]) list[i] *= 2.0;
+			}
+		}
+		
 /*
 F: F, Ab, Bb, B, C, Eb, F
 F#/Gb: F#, A, B, C, C#, E, F#
@@ -83,11 +91,15 @@ B: B, D, E, F, F#, A, B
 		compressor.connect(audio.destination);
 		audio.compressorNode = compressor;
 
+		
 		// Note
 
 		function Note(audio, noteList) {
 			this.beep = false;
 			this.playing = false;
+
+			this.duration = 1000;
+			this.halflife = 50;
 
 			//audio
 			this.oscillator = audio.createOscillator();
@@ -98,7 +110,7 @@ B: B, D, E, F, F#, A, B
 			this.gainNode = audio.createGain();				
 			this.oscillator.connect( this.gainNode );
 
-			noteList[noteList.length] = this;
+			if(noteList) noteList[noteList.length] = this;
 
 			//degrade gain
 			window.setInterval(
@@ -154,7 +166,7 @@ B: B, D, E, F, F#, A, B
 				this.gainNode.gain.value = 0.5;
 				this.playing = true;
 				this.element.style.backgroundColor = "#FFF";
-				window.setTimeout(this.pause.bind(this), 1000);
+				window.setTimeout(this.pause.bind(this), this.duration);
 			}
 		}
 
@@ -170,7 +182,7 @@ B: B, D, E, F, F#, A, B
 		// Chord
 
 		function Chord(audio, parentElement, chordList, noteList) {
-			this.noteCount = 12;
+			//this.noteCount = 12;
 			this.size = 40;
 			this.padding = 4;
 
@@ -183,7 +195,7 @@ B: B, D, E, F, F#, A, B
 			this.element.style.position = "absolute";
 			this.element.style.top = 0;
 			this.element.style.left = (this.size + this.padding)*index;
-			this.element.style.height = this.noteCount * (this.size + this.padding);
+			//this.element.style.height = this.noteCount * (this.size + this.padding);
 			parentElement.appendChild(this.element);
 
 			this.notes = [];
@@ -200,8 +212,8 @@ B: B, D, E, F, F#, A, B
 		}
 
 		Chord.prototype.setScale=function(scale, octive) {
-			for(var i=0; i<this.notes.length && i<scale.length; ++i) {
-				this.notes[i].setFrequency(scale[i] * octive);
+			for(var i=0; i<7; ++i) {
+				this.notes[i].setFrequency(scale[6-i] * octive);
 			}
 		}
 
@@ -224,7 +236,7 @@ B: B, D, E, F, F#, A, B
 		}
 
 		/// initialization
-		function ToneMatrix(x, y) {
+		function ToneMatrix(x, y, beatCount) {
 			var allNotes = [];
 			var allChords = [];
 
@@ -236,7 +248,7 @@ B: B, D, E, F, F#, A, B
 	    	document.body.appendChild(div);
 
 	    	var prev = undefined;
-			for(var i=0; i<12; ++i) {
+			for(var i=0; i<beatCount; ++i) {
 				var chord = new Chord(audio, div, allChords, allNotes);
 				if(prev) prev.link(chord);
 				prev = chord;
@@ -371,7 +383,7 @@ B: B, D, E, F, F#, A, B
 				}
 
 				delayTime = delayField.value;
-				if(delayTime < 100) delayTime = delayField.value = 100;
+				//if(delayTime < 100) delayTime = delayField.value = 100;
 
 				allChords[0].play(delayTime);
 			}
@@ -386,7 +398,19 @@ B: B, D, E, F, F#, A, B
 				allChords[i].setScale( scalesByName.bluesPentaCsMinor, 5 );
 			}
 		}
-		var tm0 = new ToneMatrix("25%","25%");
+		var tm0 = new ToneMatrix("25%","25%", 24);
+
+
+		div = document.createElement("div");
+		div.style = {};
+		div.style.position = "absolute";
+		div.style.height = "50%";
+		div.style.bottom = 0;
+		div.style.left = 0;
+		div.style.right = 0;
+		document.body.appendChild(div);
+
+
 	</script>
 </body>
 </html>
