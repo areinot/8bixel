@@ -233,10 +233,15 @@
 			else if(this.onFinished) window.setTimeout(this.onFinished, delay);
 		}
 
-		Chord.prototype.stop=function(delay) {
+		Chord.prototype.stop=function(immediate) {
 			if(this.timeoutID != -1 ) {
 				window.clearTimeout( this.timeoutID );
 				this.timeoutID = -1;
+			}
+			if(immediate) {
+				for(var i=0; i<this.notes.length; ++i) {	
+					this.notes[i].pause();
+				}
 			}
 		}
 
@@ -445,6 +450,12 @@
 			clear.onclick=function () {			
 				for( var i=0; i<allNotes.length; ++i ) {
 					allNotes[i].clear();
+				}
+			}
+
+			window.onblur=function () {
+				for( var i=0; i<allChords.length; ++i ) {
+					allChords[i].stop(true);
 				}
 			}
 
