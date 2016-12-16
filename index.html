@@ -15,6 +15,7 @@
 </head>
 <body bgcolor='#222'>	
 	<script>
+		//constants
 		var frequencyTable = [
 		    55.000,
 			58.270,
@@ -50,18 +51,24 @@
 			Ab: frequencyTable[11]
 		};
 
-		var scalesByName = {			
+		var scalesByName = {
+			CMajor : 			[ notesByName.A, notesByName.C, notesByName.D, notesByName.E, notesByName.G ],
+			CMinor : 			[ notesByName.As, notesByName.C, notesByName.Ds, notesByName.F, notesByName.G ],
 			bluesPentaCMinor : 	[ notesByName.C, notesByName.Eb, notesByName.F, notesByName.Fs, notesByName.G, notesByName.Bb, notesByName.C ],
 			bluesPentaCsMinor : [ notesByName.Cs, notesByName.E, notesByName.Fs, notesByName.G, notesByName.Gs, notesByName.B, notesByName.Cs ],
 			bluesPentaDMinor : 	[ notesByName.D, notesByName.F, notesByName.G, notesByName.Gs, notesByName.A, notesByName.C, notesByName.D ],
 			bluesPentaDsMinor : [ notesByName.Ds, notesByName.Fs, notesByName.Gs, notesByName.A, notesByName.As, notesByName.Cs, notesByName.Ds ],
-			bluesPentaEMinor :  [ notesByName.E, notesByName.G, notesByName.A, notesByName.As, notesByName.B, notesByName.D, notesByName.E ]
+			bluesPentaEMinor :  [ notesByName.E, notesByName.G, notesByName.A, notesByName.As, notesByName.B, notesByName.D, notesByName.E ],
+			byzantine : 		[ notesByName.D, notesByName.E, notesByName.F, notesByName.G, notesByName.A, notesByName.Bb, notesByName.Cs ],
+			low : 				[ 10, 20, 40, 60, 80, 120, 160 ],
+			mid : 				[ 180, 220, 260, 320, 380, 440, 550 ],
+			high :  			[ 880, 980, 1080, 1800, 2800, 3800, 5000 ]
 		};
 
 		for(var s in scalesByName) {
 			var list = scalesByName[s];
 			for(var i=1; i<list.length; ++i) {
-				while(list[i] < list[i-1]) list[i] *= 2.0;
+				if(list[i-1] > list[i]) list[i] *= 2.0; //TODO: this is very suspect
 			}
 		}
 		
@@ -81,37 +88,41 @@
 		compressor.connect(audio.destination);
 		audio.compressorNode = compressor;
 
-		audio.masterGainNode = audio.createGain();
-		audio.masterGainNode.gain = 1.0;
-		audio.masterGainNode.connect(audio.compressorNode);
-
 		
 		// Note
 
 		function Note(audio, noteList) {
+			this.audio = audio;
 			this.beep = false;
 			this.playing = false;
 
 			this.duration = 1000;
-			this.halflife = 50;
+			this.timestamp = audio.currentTime;
+			this.decay = null;
 
 			//audio
 			this.gainNode = audio.createGain();				
 			
-			this.buildOscillator(audio);
+			this.buildOscillator();
 			if(noteList) noteList[noteList.length] = this;
 
 			//degrade gain
-			window.setInterval(
-				function() { 					
-					this.gainNode.gain.value *= 0.75;
+			window.setInterval(				
+				function() {
+					if(this.decay === null ) this.gainNode.gain.value = 0.5;
+					else 				 this.gainNode.gain.value = 0.5 * Math.exp( this.decay * (this.audio.currentTime-this.timestamp));
 				}.bind(this),
 				50
 			);
 		}
 
-		Note.prototype.buildOscillator = function (audio) {
-			var osc = audio.createOscillator();
+		Note.prototype.setHalflife = function( millisec ) {
+			if( millisec <= 0.0) this.decay = null;
+			else 				 this.decay = -693.4718 / millisec; //convert halflife to seconds and multiply by a fancee constant.
+		}
+
+		Note.prototype.buildOscillator = function () {
+			var osc = this.audio.createOscillator();
 
 			if(this.oscillator) {
 				osc.frequency.value = this.oscillator.frequency.value;
@@ -168,17 +179,18 @@
 
 		Note.prototype.play = function () {
 			if(this.beep) {
-				this.gainNode.connect(audio.masterGainNode);
-				this.gainNode.gain.value = 0.5;
+				this.gainNode.connect(this.audio.compressorNode);
+				this.gainNode.gain.value = 0.5;								
 				this.playing = true;
 				this.element.style.backgroundColor = "#FFF";
+				this.timestamp = this.audio.currentTime;
 				window.setTimeout(this.pause.bind(this), this.duration);
 			}
 		}
 
 		Note.prototype.pause = function () {
 			if(this.playing) {
-				this.gainNode.disconnect(audio.masterGainNode);				
+				this.gainNode.disconnect(this.audio.compressorNode);				
 				this.playing = false;
 			}
 			if(this.beep)	this.element.style.backgroundColor = "#666";
@@ -189,7 +201,7 @@
 
 		function Chord(audio, parentElement, chordList, noteList) {
 			//this.noteCount = 12;
-			this.size = 40;
+			this.size = 30;
 			this.padding = 4;
 			this.onFinished = null;
 
@@ -208,7 +220,7 @@
 			this.notes = [];
 
 			//notes
-			for(var i=0; i<14; ++i) {
+			for(var i=0; i<16; ++i) {
 				this.notes[i] = new Note(audio, noteList);
 				this.notes[i].attach(this.element, 0, i*(this.size + this.padding), this.size, this.size);
 			}
@@ -218,10 +230,11 @@
 			this.timeoutID = -1;
 		}
 
-		Chord.prototype.setScale=function(scale, octive) {
-			for(var i=0; i<7; ++i) {
-				this.notes[i].setFrequency(scale[6-i] * octive);
-				this.notes[i+7].setFrequency(scale[6-i] * (octive-1));
+		Chord.prototype.setScale=function(scale) {
+			for(var i=0; i<16; ++i) {
+				var j = i % scale.length;
+				var octive = Math.floor(i/scale.length) + 1;
+				this.notes[i].setFrequency(scale[j] * octive);
 			}
 		}
 
@@ -259,6 +272,7 @@
 	    	div.style.position = "absolute";
 	    	div.style.left = x;
 	    	div.style.top = y;
+	    	div.style.bottom = 0;
 	    	document.body.appendChild(div);
 
 	    	var prev = undefined;
@@ -271,26 +285,125 @@
 			var padding = allChords[0].padding;
 			var size = allChords[0].size;
 			var delayTime = 200;
+			var durationTime = 1000;
+			var noteHalflife = 100;
+
+			var y = 0;
+			var x = allChords.length * (size + padding);
 
 			var delayField = document.createElement("input");
-			delayField.type = "number";
-			delayField.value = delayTime;
-			delayField.style = {};
-			delayField.style.position = "absolute";
-			delayField.style.left = allChords.length * (size + padding);
-			delayField.style.top = 0;
-			delayField.style.width = "100px";
-			delayField.style.height = size;
-			div.appendChild(delayField);
+			{
+				delayField.type = "number";
+				delayField.value = delayTime;
+				delayField.style = {};
+				delayField.style.position = "absolute";
+				delayField.style.left = x;
+				delayField.style.top = 0;
+				delayField.style.width = "100px";
+				delayField.style.height = size;			
+				div.appendChild(delayField);
+
+				var text = document.createElement("div");
+				text.innerHTML = "Delay (ms)";
+				text.style = {};
+				text.style.fontFamily = "arial";
+				text.style.color  = "#fff";
+				text.style.position = "absolute"
+				text.style.left = x + 108;
+				text.style.top = y + 12;
+				text.style.width = 160;
+				text.style.height = 30;
+				div.appendChild(text);
+			}
+
+			y += size+padding;
+
+			var durationField = document.createElement("input");
+			{
+				durationField.type = "number";
+				durationField.value = durationTime;
+				durationField.style = {};
+				durationField.style.position = "absolute";
+				durationField.style.left = x;
+				durationField.style.top = y;
+				durationField.style.width = "100px";
+				durationField.style.height = size;
+				div.appendChild(durationField);
+
+				var text = document.createElement("div");
+				text.innerHTML = "Duration (ms)";
+				text.style = {};
+				text.style.fontFamily = "arial";
+				text.style.color  = "#fff";
+				text.style.position = "absolute"
+				text.style.left = x + 108;
+				text.style.top = y + 12;
+				text.style.width = 160;
+				text.style.height = 30;
+				div.appendChild(text);
+			}
+			y += size+padding;
+
+			var decayField = document.createElement("input");
+			{
+				decayField.type = "number";
+				decayField.value = noteHalflife;
+				decayField.style = {};
+				decayField.style.position = "absolute";
+				decayField.style.left = x;
+				decayField.style.top = y;
+				decayField.style.width = "100px";
+				decayField.style.height = size;
+				div.appendChild(decayField);
+
+				var text = document.createElement("div");
+				text.innerHTML = "Decay (ms half-life)";
+				text.style = {};
+				text.style.fontFamily = "arial";
+				text.style.color  = "#fff";
+				text.style.position = "absolute"
+				text.style.left = x + 108;
+				text.style.top = y + 12;
+				text.style.width = 160;
+				text.style.height = 30;
+				div.appendChild(text);
+			}
+
+			y += size+padding;
 
 			var scaleField = document.createElement("select");		
 			scaleField.style = {};
 			scaleField.style.position = "absolute";
-			scaleField.style.left = allChords.length * (size + padding) + 100 + padding;
-			scaleField.style.top = 0;
+			scaleField.style.left = x;
+			scaleField.style.top = y;
 			scaleField.style.width = "150px";
 			scaleField.style.height = size;		
 			{
+				opt = document.createElement("option");
+				opt.value = "high";
+				opt.innerHTML = "High";
+				scaleField.appendChild(opt);
+
+				opt = document.createElement("option");
+				opt.value = "mid";
+				opt.innerHTML = "Mid";
+				scaleField.appendChild(opt);
+				
+				opt = document.createElement("option");
+				opt.value = "low";
+				opt.innerHTML = "Low";
+				scaleField.appendChild(opt);
+
+				var opt = document.createElement("option");
+				opt.value = "CMajor";
+				opt.innerHTML = "C Major";
+				scaleField.appendChild(opt);
+
+				var opt = document.createElement("option");
+				opt.value = "CMinor";
+				opt.innerHTML = "C Minor";
+				scaleField.appendChild(opt);
+
 				var opt = document.createElement("option");
 				opt.value = "bluesPentaCMinor";
 				opt.innerHTML = "Blues C Minor";
@@ -315,14 +428,21 @@
 				opt.value = "bluesPentaEMinor";
 				opt.innerHTML = "Blues E Minor";
 				scaleField.appendChild(opt);
+
+				opt = document.createElement("option");
+				opt.value = "byzantine";
+				opt.innerHTML = "Byzantine";
+				scaleField.appendChild(opt);
 			}
 			div.appendChild(scaleField);
+
+			y += size+padding;
 
 			var instrumentField = document.createElement("select");		
 			instrumentField.style = {};
 			instrumentField.style.position = "absolute";
-			instrumentField.style.left = allChords.length * (size + padding) + 100 + padding;
-			instrumentField.style.top = size + padding;
+			instrumentField.style.left = x;
+			instrumentField.style.top = y;
 			instrumentField.style.width = "150px";
 			instrumentField.style.height = size;		
 			{
@@ -348,47 +468,53 @@
 			}
 			div.appendChild(instrumentField);
 
+			y += size+padding;
+
 			var loopField = document.createElement("input");
-			loopField.type = "checkbox";
-			loopField.checked = false;
+			{
+				loopField.type = "checkbox";
+				loopField.checked = false;
 
-			loopField.style = {};
-			loopField.style.color  = "#fff";
-			loopField.style.position = "absolute"
-			loopField.style.left = allChords.length * (size + padding) + 100 + padding;
-			loopField.style.top = 2.0 * (size + padding) + 8;
-			loopField.style.width = 30;
-			loopField.style.height = 30;
-			div.appendChild(loopField);
+				loopField.style = {};
+				loopField.style.color  = "#fff";
+				loopField.style.position = "absolute"
+				loopField.style.left = x + 100 + padding;
+				loopField.style.top = y + 16;
+				loopField.style.width = 30;
+				loopField.style.height = 30;
+				div.appendChild(loopField);
 
-			var text = document.createElement("div");
-			text.innerHTML = "Loop Playback";
-			text.style = {};
-			text.style.fontFamily = "arial";
-			text.style.color  = "#fff";
-			text.style.position = "absolute"
-			text.style.left = allChords.length * (size + padding) + 100 + padding + 40;
-			text.style.top = 2.0 * (size + padding) + 18;
-			text.style.width = 160;
-			text.style.height = 30;
-			
-			div.appendChild(text);
+				var text = document.createElement("div");
+				text.innerHTML = "Loop Playback";
+				text.style = {};
+				text.style.fontFamily = "arial";
+				text.style.color  = "#fff";
+				text.style.position = "absolute"
+				text.style.left = x + 100 + 42;
+				text.style.top = y + 26;
+				text.style.width = 160;
+				text.style.height = 30;
+				
+				div.appendChild(text);
+			}
 			
 			var play = document.createElement("button");
 			play.style = {};
 			play.style.position = "absolute";
 			play.style.left = allChords.length * (size + padding);
-			play.style.top = size + padding;
+			play.style.top = y;
 			play.style.width = "100px";
 			play.style.height = "100px";
 			play.innerHTML = "Play";
 			div.appendChild(play);
 
+			y += 100+padding;
+
 			var stop = document.createElement("button");
 			stop.style = {};
 			stop.style.position = "absolute";
 			stop.style.left = allChords.length * (size + padding);
-			stop.style.top = size + 100 + padding * 2;
+			stop.style.top = y;
 			stop.style.width = "100px";
 			stop.style.height = "100px";
 			stop.innerHTML = "Stop";
@@ -398,7 +524,7 @@
 			clear.style = {};
 			clear.style.position = "absolute";
 			clear.style.left = allChords.length * (size + padding) +  100 + padding;
-			clear.style.top = size + 100 + padding * 2;
+			clear.style.top = y;
 			clear.style.width = "100px";
 			clear.style.height = "100px";
 			clear.innerHTML = "Clear";
@@ -407,8 +533,25 @@
 
 			delayField.onchange=function () {
 				delayTime = delayField.value;
-				if(delayTime < 60) delayTime = delayField.value = 60;
+				if(delayTime < 1) delayTime = delayField.value = 1;
 				stop.onclick(); // requires restart of playing
+			}
+
+			durationField.onchange=function () {
+				durationTime = durationField.value;				
+				for( var i=0; i<allNotes.length; ++i ) {
+					allNotes[i].duration = durationTime;
+				}
+			}
+
+			decayField.onchange=function () {
+				noteHalflife = decayField.value;
+				if(noteHalflife < 0) noteHalflife = 0;
+				decayField.value = noteHalflife;
+
+				for( var i=0; i<allNotes.length; ++i ) {
+					allNotes[i].setHalflife(noteHalflife);
+				}
 			}
 
 			instrumentField.onchange=function () {
@@ -459,11 +602,15 @@
 				}
 			}
 
-			for(var i=0; i<allChords.length; ++i) {
-				allChords[i].setScale( scalesByName.bluesPentaCsMinor, 5 );
-			}
+			//trigger defaults
+			loopField.onclick();
+			instrumentField.onchange();
+			scaleField.onchange();
+			decayField.onchange();
+			durationField.onchange();
+			delayField.onchange();
 		}
-		var tm0 = new ToneMatrix("25%", "8px", 24);
+		var tm0 = new ToneMatrix("25%", "8px", 16);
 
 
 		div = document.createElement("div");
