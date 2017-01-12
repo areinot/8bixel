@@ -66,17 +66,18 @@
 		this.container.appendChild(this.element);
 
 		if(desc.save) {
-			this.saveURL = document.createElement("a");
-			this.saveURL.innerHTML = "<img src='save.png' style='width:27px; height:27px'></img>";
+			this.saveURL = document.createElement("a");			
 			this.saveURL.style.position = "absolute";
 			this.saveURL.style.left = this.width * this.zoomScale + 18;
-
 			this.saveURL.addEventListener('click', function(ev) {
 			    this.saveURL.href = this.element.toDataURL();
 			    this.saveURL.download = "art.png";
 			}.bind(this), false);
-
 			this.container.appendChild(this.saveURL);
+
+			var img = document.createElement("img");
+			img.src = "save.png"; 
+			this.saveURL.appendChild(img);
 		}
 		tools.brush = this.context.getImageData(0,0,1,1);
 		
