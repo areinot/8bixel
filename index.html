@@ -68,7 +68,7 @@
 			bluesPentaEMinor :  [ notesByName.E, notesByName.G, notesByName.A, notesByName.As, notesByName.B, notesByName.D, notesByName.E ],
 			byzantine : 		[ notesByName.D, notesByName.E, notesByName.F, notesByName.G, notesByName.A, notesByName.Bb, notesByName.Cs ],
 			low : 				[ 10, 20, 40, 60, 80, 120, 160 ],
-			mid : 				[ 180, 220, 260, 320, 380, 440, 550 ],
+			mid : 				[ 180, 220, 260, 320, 440 ],
 			high :  			[ 880, 980, 1080, 1800, 2800, 3800, 5000 ]
 		};
 		var scaleTable = [];		
@@ -77,7 +77,7 @@
 			scaleTable[scaleTable.length] = s;
 			var list = scalesByName[s];
 			for(var i=1; i<list.length; ++i) {
-				if(list[i-1] > list[i]) list[i] *= 2.0; //TODO: this is very suspect
+				//while(list[i-1] > list[i]) list[i] *= 2.0; //TODO: this is very suspect
 			}
 		}
 		
@@ -245,8 +245,9 @@
 
 		Chord.prototype.setScale=function(scale) {
 			for(var i=0; i<16; ++i) {
-				var j = i % scale.length;
-				var octive = Math.floor(i/scale.length) + 1;
+				var j = i % 5;//scale.length;
+				var octive = 1 + Math.floor(i/5.0);
+				
 				this.notes[i].setFrequency(scale[j] * octive);
 			}
 		}
