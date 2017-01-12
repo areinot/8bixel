@@ -1,0 +1,122 @@
+<html>
+<head>
+    <title>Paint</title>
+    <style>
+	    button {
+		    background-color: #444;
+		    border: 1px solid #888;
+		    color: white;
+		    text-align: center;
+		    text-decoration: none;
+		    display: inline-block;
+		    font-size: 12px;
+		}
+	</style>
+</head>
+<body bgcolor='#222'>
+<script>
+	var Palette = function() {
+		this.element = document.createElement("canvas");
+		this.context = this.element.getContext("2d");
+		this.width = this.element.width = 64;
+		this.height = this.element.height = 64;
+		this.zoomScale = 4;
+		
+		this.element.style = {};	
+		this.element.style.border = "1px solid white";			
+		this.element.style.width = this.width * this.zoomScale;
+		this.element.style.height = this.height * this.zoomScale;
+		this.element.style.cursor = "crosshair";
+
+		this.element.style.imageRendering = "pixelated";	//css3	
+		document.body.appendChild(this.element);
+
+		image = new Image();
+		image.onload = function(context) {
+		    context.drawImage(this, 0, 0);
+		}.bind(image, this.context);
+		image.src = 'palette.png';
+	}
+	var palette = new Palette();
+
+
+	var Canvas = function () {
+		this.element = document.createElement("canvas");			
+		this.context = this.element.getContext("2d");
+		this.width = this.element.width = 64;
+		this.height = this.element.height = 64;
+		
+		this.zoomScale = 8;	
+
+		this.element.style = {};	
+		this.element.style.border = "1px solid white";		
+		this.element.style.width = this.width * this.zoomScale;
+		this.element.style.height = this.height * this.zoomScale;
+		this.element.style.cursor = "crosshair";
+
+		this.element.style.imageRendering = "pixelated";	//css3	
+		document.body.appendChild(this.element);
+
+		//vars
+
+		this.brush = this.context.getImageData(0,0,1,1);	
+		this.color0 = [255,255,255,255];
+		this.color1 = [0,0,0,255];
+
+		///input
+		
+		//ignore right-click
+		this.element.addEventListener('contextmenu', function(ev) { ev.preventDefault(); return false; },	false );
+		this.element.addEventListener('mousedown', function(ev) {
+				if(ev.button == 0 ) this.paintPixel(ev);
+			}.bind(this)
+		);
+
+		//handle mouse-motion
+		this.element.addEventListener('mousemove', function(ev) {			
+				if(ev.buttons == 1 ) this.paintPixel(ev);			
+				if(ev.buttons == 3 ) this.pickPixel(ev);
+			}.bind(this)
+		);
+
+		//handle mouse-up
+		this.element.addEventListener('mouseup', function(ev) {			
+				if(ev.button == 2 ) this.pickPixel(ev);
+			}.bind(this)
+		);
+	}
+
+	Canvas.prototype.pickPixel = function(ev) {
+		var x = event.layerX / this.zoomScale;
+	 	var y = event.layerY / this.zoomScale;		
+		var i = 4*(y*this.width + x);
+
+		var px = this.context.getImageData(x,y,1,1).data;
+		this.color0[0] = px[0];
+		this.color0[1] = px[1];
+		this.color0[2] = px[2];
+		this.color0[3] = px[3];
+	}
+	
+	Canvas.prototype.paintPixel = function(ev) {			
+		var x = event.layerX / this.zoomScale;
+	 	var y = event.layerY / this.zoomScale;
+	 	
+	 	for(var i=0; i<this.brush.data.length; i+=4) {
+			this.brush.data[i] = this.color0[0];
+	  		this.brush.data[i+1] = this.color0[1];
+	  		this.brush.data[i+2] = this.color0[2];
+	  		this.brush.data[i+3] = this.color0[3];
+	  	}
+  		this.context.putImageData(this.brush, x,y);
+	}
+	var canvas = new Canvas();
+	
+
+	
+
+	
+
+</script>
+</body>
+</html>
