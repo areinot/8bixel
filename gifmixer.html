@@ -32,12 +32,12 @@
 			this.context = this.element.getContext("2d");
 			this.spriteWidth  = this.element.width  = this.element.style.width  = desc.width  ? desc.width  : this.sheet.width;
 			this.spriteHeight = this.element.height = this.element.style.height = desc.height ? desc.height : this.sheet.height;
+			this.colCount = Math.floor(this.sheet.width / this.spriteWidth);
 			document.body.appendChild(this.element);
 
 			//PARAMS
 			this.frameRate = desc.frameRate ? Math.max(0.001, desc.frameRate) : 1.0;
 			this.frameCount = desc.frameCount ? Math.max(1, desc.frameCount) : 1;
-			this.colCount = Math.floor(this.sheet.width / this.spriteWidth);
 			this.playTime = null;
 			this.playFrame = 0;
 			this.loop = desc.loop ? desc.loop : "forever";
@@ -70,13 +70,13 @@
 
 		if(timestamp - this.playTime > 1000.0 / this.frameRate) {
 			this.playTime = timestamp;
-			this.playFrame = (this.playFrame + 1) % (this.frameCount * 2); //2x range for bounce looping
-
+			this.playFrame++;
+			this.playFrame %= (this.frameCount * 2); //2x range for bounce looping
+			repaint = true;
+			
 			if(this.loop == "once" && this.playFrame >= this.frameCount) {
-					this.pause();
-					return;
-			} else {
-				repaint = true;
+				this.pause();
+				return;
 			}
 		}
 
@@ -125,6 +125,7 @@
 
 	var sprite = new Sprite("jebsheet.png", desc);
 	sprite.onload = function() {
+		//Loaded? Go!
 		sprite.play();
 		
 		//some play pause features
@@ -144,13 +145,11 @@
 			}
 		}.bind(sprite));
 
+		//Full sprite sheet preview
 		var desc = {
 			width: sprite.sheet.width,
 			height: sprite.sheet.height,
-			frameCount: 1,
-			frameRate: 1
 		};
-
 		sheet = new Sprite("jebsheet.png", desc);
 		sheet.onload = function () {
 			sheet.element.style.position = "relative";
