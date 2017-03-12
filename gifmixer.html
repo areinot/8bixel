@@ -23,6 +23,15 @@
 
 <script>
 	Sprite = function(url, desc) {
+		//PARAMS
+		this.frameRate =  desc.frameRate  ? Math.max(0.001, desc.frameRate) : 1.0;
+		this.frameCount = desc.frameCount ? Math.max(1, desc.frameCount) : 1;
+		this.playTime = null;
+		this.playFrame = 0;
+		this.loop = desc.loop ? desc.loop : "forever";
+		this.spriteWidth = desc.width;
+		this.spriteHeight = desc.height;
+
 		this.sheet = new Image();
 		this.sheet.onload = function() {
 			//DOM
@@ -30,21 +39,14 @@
 			this.element.style = {};
 			this.element.style.imageRendering = "pixelated";	//css3
 			this.context = this.element.getContext("2d");
-			this.spriteWidth  = this.element.width  = this.element.style.width  = desc.width  ? desc.width  : this.sheet.width;
-			this.spriteHeight = this.element.height = this.element.style.height = desc.height ? desc.height : this.sheet.height;
+			this.spriteWidth  = this.element.width  = this.element.style.width  = this.spriteWidth  ? this.spriteWidth  : this.sheet.width;
+			this.spriteHeight = this.element.height = this.element.style.height = this.spriteHeight ? this.spriteHeight : this.sheet.height;
 			this.colCount = Math.floor(this.sheet.width / this.spriteWidth);
 			document.body.appendChild(this.element);
 
-			//PARAMS
-			this.frameRate = desc.frameRate ? Math.max(0.001, desc.frameRate) : 1.0;
-			this.frameCount = desc.frameCount ? Math.max(1, desc.frameCount) : 1;
-			this.playTime = null;
-			this.playFrame = 0;
-			this.loop = desc.loop ? desc.loop : "forever";
-			
 			//CALLBACK
-			if(this.onload !== undefined) this.onload();
 			this.draw(this.playFrame);
+			if(this.onload !== undefined) this.onload();
 		}.bind(this);
 
 		//GO!
@@ -114,20 +116,7 @@
 	}
 
 	///
-
-	var desc = {
-		width: 256,
-		height: 256,
-		frameCount: 41,
-		frameRate: 24,
-		loop: "bounce" //once, forever, bounce
-	};
-
-	var sprite = new Sprite("jebsheet.png", desc);
-	sprite.onload = function() {
-		//Loaded? Go!
-		sprite.play();
-		
+	var addPlaybackControls=function(sprite) {	
 		//some play pause features
 		sprite.element.style.border = "1px solid #0f5";
 		sprite.element.addEventListener("contextmenu", function(e) { e.preventDefault(); } );
@@ -144,6 +133,28 @@
 				this.rewind();
 			}
 		}.bind(sprite));
+	}
+
+	var desc = {
+		width: 256,
+		height: 256,
+		frameCount: 41,
+		frameRate: 24,
+		loop: "once" //once, forever, bounce
+	};
+
+	var sprite0 = new Sprite("jebsheet.png", desc);
+	sprite0.onload = function() { addPlaybackControls(sprite0); sprite0.play(); }
+	
+	desc.loop = "forever";
+	var sprite1 = new Sprite("jebsheet.png", desc);
+	sprite1.onload = function() { addPlaybackControls(sprite1); sprite1.play(); }
+	
+	desc.loop = "bounce";
+	var sprite = new Sprite("jebsheet.png", desc);
+	sprite.onload = function() {
+		addPlaybackControls(sprite);
+		sprite.play();
 
 		//Full sprite sheet preview
 		var desc = {
@@ -153,9 +164,10 @@
 		sheet = new Sprite("jebsheet.png", desc);
 		sheet.onload = function () {
 			sheet.element.style.position = "relative";
-			sheet.element.style.left = 10;
-			sheet.element.style.width = sprite.element.height / sprite.sheet.height * sprite.sheet.width;
-			sheet.element.style.height = sprite.element.height;
+			sheet.element.style.left = 4;
+			sheet.element.style.top = 10;
+			sheet.element.style.width = 3.0 * sprite.element.width;
+			sheet.element.style.height = 3.0 * sprite.element.width / sprite.sheet.width * sprite.sheet.height;
 		}
 	}
 </script>
