@@ -1,0 +1,164 @@
+<html>
+<head>
+    <title>Paint</title>
+    <style>
+    	a {
+    		color: #bbb;
+		    font-size: 14px;
+		    text-align: left;
+		    cursor: pointer;
+    	}
+	    button {
+		    background-color: #444;
+		    border: 1px solid #555;
+		    color: white;
+		    text-align: center;
+		    text-decoration: none;
+		    display: inline-block;
+		    font-size: 12px;
+		}
+	</style> 
+</head>
+<body bgcolor='#222'>
+
+<script>
+	Sprite = function(url, desc) {
+		this.sheet = new Image();
+		this.sheet.onload = function() {
+			//DOM
+			this.element = document.createElement("canvas");
+			this.element.style = {};
+			this.element.style.imageRendering = "pixelated";	//css3
+			this.context = this.element.getContext("2d");
+			this.spriteWidth  = this.element.width  = this.element.style.width  = desc.width  ? desc.width  : this.sheet.width;
+			this.spriteHeight = this.element.height = this.element.style.height = desc.height ? desc.height : this.sheet.height;
+			document.body.appendChild(this.element);
+
+			//PARAMS
+			this.frameRate = desc.frameRate ? Math.max(0.001, desc.frameRate) : 1.0;
+			this.frameCount = desc.frameCount ? Math.max(1, desc.frameCount) : 1;
+			this.colCount = Math.floor(this.sheet.width / this.spriteWidth);
+			this.playTime = null;
+			this.playFrame = 0;
+			this.loop = desc.loop ? desc.loop : "forever";
+			
+			//CALLBACK
+			if(this.onload !== undefined) this.onload();
+			this.draw(this.playFrame);
+		}.bind(this);
+
+		//GO!
+		this.sheet.src = url;
+	}
+
+	Sprite.prototype.draw = function(frame) {
+		frame = frame % this.frameCount;
+		var x = frame % this.colCount;
+		var y = (frame - x) / this.colCount;
+		x *= this.spriteWidth;
+		y *= this.spriteHeight;
+		this.context.drawImage(this.sheet, x, y, this.spriteWidth, this.spriteHeight, 0, 0, this.element.width, this.element.height);
+	}
+
+	Sprite.prototype.play = function(timestamp) {
+		var repaint = false;
+		if(!this.playTime) {
+			if(this.loop == "once") this.rewind();
+			this.playTime = timestamp;
+			repaint = true;
+		}
+
+		if(timestamp - this.playTime > 1000.0 / this.frameRate) {
+			this.playTime = timestamp;
+			this.playFrame = (this.playFrame + 1) % (this.frameCount * 2); //2x range for bounce looping
+
+			if(this.loop == "once" && this.playFrame >= this.frameCount) {
+					this.pause();
+					return;
+			} else {
+				repaint = true;
+			}
+		}
+
+		if( repaint ) {
+			//bounce
+			if( this.loop == "bounce") { 
+				if(this.playFrame < this.frameCount )	this.draw(this.playFrame);
+				else 									this.draw(this.frameCount - (this.playFrame - this.frameCount) - 1);
+			}
+			//forever & once
+			else {
+				this.draw(this.playFrame);
+			}
+		}
+		
+		this.requestID = window.requestAnimationFrame(this.play.bind(this));
+	}
+
+	Sprite.prototype.pause = function() {
+		if(this.requestID) {
+			window.cancelAnimationFrame(this.requestID);
+			this.requestID = null;
+			this.playTime = null;
+		}
+	}
+
+	Sprite.prototype.rewind = function() {
+		this.playTime = null;
+		this.playFrame = 0;
+		this.draw(0);
+	}
+
+	Sprite.prototype.isPlaying = function() {
+		return this.requestID !== null && this.requestID !== undefined;
+	}
+
+	///
+
+	var desc = {
+		width: 256,
+		height: 256,
+		frameCount: 41,
+		frameRate: 24,
+		loop: "bounce" //once, forever, bounce
+	};
+
+	var sprite = new Sprite("jebsheet.png", desc);
+	sprite.onload = function() {
+		sprite.play();
+		
+		//some play pause features
+		sprite.element.style.border = "1px solid #0f5";
+		sprite.element.addEventListener("contextmenu", function(e) { e.preventDefault(); } );
+		sprite.element.addEventListener("mousedown", function(e) {
+			if(e.button == 0) {
+				if(this.isPlaying()) {
+					this.pause();
+					this.element.style.border = "1px solid #d00";
+				} else {
+	 				this.play();
+	 				this.element.style.border = "1px solid #0f5";
+	 			}
+			} else if( e.button == 2) {
+				this.rewind();
+			}
+		}.bind(sprite));
+
+		var desc = {
+			width: sprite.sheet.width,
+			height: sprite.sheet.height,
+			frameCount: 1,
+			frameRate: 1
+		};
+
+		sheet = new Sprite("jebsheet.png", desc);
+		sheet.onload = function () {
+			sheet.element.style.position = "relative";
+			sheet.element.style.left = 10;
+			sheet.element.style.width = sprite.element.height / sprite.sheet.height * sprite.sheet.width;
+			sheet.element.style.height = sprite.element.height;
+		}
+	}
+</script>
+</body>
+</html>
