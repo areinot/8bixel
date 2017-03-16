@@ -1,45 +1,10 @@
 <html>
 <head>
-	<script src="Sprite.js"></script>
-    <title>gif mixer</title>
+	<title>gif mixer</title>
+	<script src="Sprite.js"></script>    
 </head>
 <body bgcolor='#222'>
-<script>
-	var addPlaybackControls=function(sprite) {	
-		//some play pause features
-		sprite.element.style.border = "1px solid #0f5";
-		sprite.element.addEventListener("contextmenu", function(e) { e.preventDefault(); } );
-		sprite.element.addEventListener("mousedown", function(e) {
-			if(e.button == 0) {
-				if(this.isPlaying()) {
-					this.pause();
-					this.element.style.border = "1px solid #d00";
-				} else {
-	 				this.play();
-	 				this.element.style.border = "1px solid #0f5";
-	 			}
-			} else if( e.button == 2) {
-				this.rewind();
-			}
-		}.bind(sprite));
-	}
-
-	var desc = {
-		url: "jebsheet.png",
-		width: 256,
-		height: 256,
-		frameCount: 41,
-		frameRate: 12,
-		loop: "bounce" //once, forever, bounce
-	};
-	
-	var sprite = new Sprite(desc);
-	
-	sprite.onload = function() {
-		addPlaybackControls(this); 
-		this.play();
-	}.bind(sprite);
-
-</script>
+	<sprite-sheet src="jebsheet.png" width="256" height="256" frame-count="41" frame-rate="30" loop="bounce"></sprite-sheet>
+	<sprite-sheet src="sunsheet.png" width="194" height="154" frame-count="60" frame-rate="20" loop="forever"></sprite-sheet>
 </body>
 </html>
