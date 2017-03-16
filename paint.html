@@ -26,6 +26,48 @@
 		this.color0 = [255,255,255,255];
 		this.color1 = [0,0,0,0];
 		this.proposedColor = null;
+
+		this.guide = {};
+		this.guide.dir = [1,0];
+		this.guide.origin = [0,0];
+		this.guide.ready = false; //flag for delay that waits for direction to be set
+
+		this.guide.setOrigin=function(x,y) {
+			this.guide.origin[0] = x;
+			this.guide.origin[1] = y;
+			this.guide.ready = false;
+		}.bind(this.guide);
+
+		this.guide.computeDir=function(x,y) {
+			if(!this.guide.ready) {
+				var dx = x-this.origin[0];
+				var dy = y-this.origin[1];
+				var len = dx*dx + dy*dy
+				if(len > 10) {
+					if(Math.abs(dx) > Math.abs(dy)) {
+						this.dir[0] = 1.0;
+						this.dir[1] = 0.0;
+					} else {
+						this.dir[0] = 0.0;
+						this.dir[1] = 1.0;
+					}
+					this.ready = true;
+				}
+			}
+		}.bind(this.guide);
+
+		this.guide.projectMotion=function(xy) {
+			if( this.ready ) {
+				var dx = xy[0]-this.origin[0];
+				var dy = xy[1]-this.origin[1];
+
+				dx *= this.dir[0];
+				dy *= this.dir[1];
+
+				xy[0] = this.origin[0] + dx;
+				xy[1] = this.origin[1] + dy;
+			}
+		}.bind(this.guide);
 	}
 	Toolset.prototype.sampleColor = function(ev, surface) {
 		var x = ev.layerX / surface.zoomScale;
@@ -95,8 +137,6 @@
 					}
 				}.bind(this)
 			);
-
-			//handle mouse-motion
 			this.element.addEventListener('mousemove', function(ev) {			
 					if( (ev.buttons & 1) != 0 ) {
 						if( ev.altKey ) tools.sampleColor(ev,this);
@@ -107,8 +147,6 @@
 					}
 				}.bind(this)
 			);
-
-			//handle mouse-up
 			this.element.addEventListener('mouseup', function(ev) {			
 					if(ev.button == 0 ) {
 						if( ev.altKey ) tools.sampleColor(ev,this);
@@ -119,12 +157,17 @@
 					}
 				}.bind(this)
 			);
+			this.element.addEventListener('keydown', function(ev) {
+					if(ev.shiftKey) tools.guide.setOrigin(ev.layerX/this.zoomScale, ev.layerY/this.zoomScale);
+				}
+			);
 		} else {
 			this.element.addEventListener('mousedown', function(ev) {
 					if( ev.button == 0 ) tools.sampleColor(ev, this);
 				}.bind(this)
 			);
-			this.element.addEventListener('mousemove', function(ev) {			
+			this.element.addEventListener('mousemove', function(ev) {
+					if( ev.shiftKey ) tools.guide.computeDir(ev.layerX/this.zoomScale, ev.layerY/this.zoomScale);
 					if( (ev.buttons & 1) != 0 ) tools.sampleColor(ev, this);
 				}.bind(this)
 			);
@@ -153,16 +196,19 @@
 		tools.color0[3] = px[3];
 	}
 	Surface.prototype.paintPixel = function(ev) {			
-		var x = event.layerX / this.zoomScale;
-	 	var y = event.layerY / this.zoomScale;
-	 	
+		var xy = [
+			event.layerX  / this.zoomScale,
+			event.layerY / this.zoomScale
+		];
+	 	tools.guide.projectMotion(xy);
+
 	 	for(var i=0; i<tools.brush.data.length; i+=4) {
 			tools.brush.data[i] =   tools.color0[0];
 	  		tools.brush.data[i+1] = tools.color0[1];
 	  		tools.brush.data[i+2] = tools.color0[2];
 	  		tools.brush.data[i+3] = tools.color0[3];
 	  	}
-  		this.context.putImageData(tools.brush, x,y);
+  		this.context.putImageData(tools.brush, xy[0], xy[1]);
 	}
 	Surface.prototype.erasePixel = function(ev) {			
 		var x = event.layerX / this.zoomScale;
@@ -176,8 +222,8 @@
 	  	}
   		this.context.putImageData(tools.brush, x,y);
 	}
-	var palette = new Surface({width:256, height:164, zoom:2, edit:false, save:false, load:true});
-	var canvas = new Surface( {width:64, height:64, zoom:8, edit:true, save:true, load:false} );
+	var palette = new Surface( { width:256, height:164, zoom:2, edit:false, save:false, load:true  } );
+	var canvas = new Surface(  { width:64,  height:64,  zoom:8, edit:true,  save:true,  load:false } );
 	
 	palette.loadImage('palette.png');
 </script>
