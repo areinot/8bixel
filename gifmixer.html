@@ -1,121 +1,10 @@
 <html>
 <head>
-    <title>Paint</title>
-    <style>
-    	a {
-    		color: #bbb;
-		    font-size: 14px;
-		    text-align: left;
-		    cursor: pointer;
-    	}
-	    button {
-		    background-color: #444;
-		    border: 1px solid #555;
-		    color: white;
-		    text-align: center;
-		    text-decoration: none;
-		    display: inline-block;
-		    font-size: 12px;
-		}
-	</style> 
+	<script src="Sprite.js"></script>
+    <title>gif mixer</title>
 </head>
 <body bgcolor='#222'>
-
 <script>
-	Sprite = function(url, desc) {
-		//PARAMS
-		this.frameRate =  desc.frameRate  ? Math.max(0.001, desc.frameRate) : 1.0;
-		this.frameCount = desc.frameCount ? Math.max(1, desc.frameCount) : 1;
-		this.playTime = null;
-		this.playFrame = 0;
-		this.loop = desc.loop ? desc.loop : "forever";
-		this.spriteWidth = desc.width;
-		this.spriteHeight = desc.height;
-
-		this.sheet = new Image();
-		this.sheet.onload = function() {
-			//DOM
-			this.element = document.createElement("canvas");
-			this.element.style = {};
-			this.element.style.imageRendering = "pixelated";	//css3
-			this.context = this.element.getContext("2d");
-			this.spriteWidth  = this.element.width  = this.element.style.width  = this.spriteWidth  ? this.spriteWidth  : this.sheet.width;
-			this.spriteHeight = this.element.height = this.element.style.height = this.spriteHeight ? this.spriteHeight : this.sheet.height;
-			this.colCount = Math.floor(this.sheet.width / this.spriteWidth);
-			document.body.appendChild(this.element);
-
-			//CALLBACK
-			this.draw(this.playFrame);
-			if(this.onload !== undefined) this.onload();
-		}.bind(this);
-
-		//GO!
-		this.sheet.src = url;
-	}
-
-	Sprite.prototype.draw = function(frame) {
-		frame = frame % this.frameCount;
-		var x = frame % this.colCount;
-		var y = (frame - x) / this.colCount;
-		x *= this.spriteWidth;
-		y *= this.spriteHeight;
-		this.context.drawImage(this.sheet, x, y, this.spriteWidth, this.spriteHeight, 0, 0, this.element.width, this.element.height);
-	}
-
-	Sprite.prototype.play = function(timestamp) {
-		var repaint = false;
-		if(!this.playTime) {
-			if(this.loop == "once") this.rewind();
-			this.playTime = timestamp;
-			repaint = true;
-		}
-
-		if(timestamp - this.playTime > 1000.0 / this.frameRate) {
-			this.playTime = timestamp;
-			this.playFrame++;
-			this.playFrame %= (this.frameCount * 2); //2x range for bounce looping
-			repaint = true;
-			
-			if(this.loop == "once" && this.playFrame >= this.frameCount) {
-				this.pause();
-				return;
-			}
-		}
-
-		if( repaint ) {
-			//bounce
-			if( this.loop == "bounce") { 
-				if(this.playFrame < this.frameCount )	this.draw(this.playFrame);
-				else 									this.draw(this.frameCount - (this.playFrame - this.frameCount) - 1);
-			}
-			//forever & once
-			else {
-				this.draw(this.playFrame);
-			}
-		}
-		
-		this.requestID = window.requestAnimationFrame(this.play.bind(this));
-	}
-
-	Sprite.prototype.pause = function() {
-		if(this.requestID) {
-			window.cancelAnimationFrame(this.requestID);
-			this.requestID = null;
-			this.playTime = null;
-		}
-	}
-
-	Sprite.prototype.rewind = function() {
-		this.playTime = null;
-		this.playFrame = 0;
-		this.draw(0);
-	}
-
-	Sprite.prototype.isPlaying = function() {
-		return this.requestID !== null && this.requestID !== undefined;
-	}
-
-	///
 	var addPlaybackControls=function(sprite) {	
 		//some play pause features
 		sprite.element.style.border = "1px solid #0f5";
@@ -136,40 +25,21 @@
 	}
 
 	var desc = {
+		url: "jebsheet.png",
 		width: 256,
 		height: 256,
 		frameCount: 41,
-		frameRate: 24,
-		loop: "once" //once, forever, bounce
+		frameRate: 12,
+		loop: "bounce" //once, forever, bounce
 	};
-
-	var sprite0 = new Sprite("jebsheet.png", desc);
-	sprite0.onload = function() { addPlaybackControls(sprite0); sprite0.play(); }
 	
-	desc.loop = "forever";
-	var sprite1 = new Sprite("jebsheet.png", desc);
-	sprite1.onload = function() { addPlaybackControls(sprite1); sprite1.play(); }
+	var sprite = new Sprite(desc);
 	
-	desc.loop = "bounce";
-	var sprite = new Sprite("jebsheet.png", desc);
 	sprite.onload = function() {
-		addPlaybackControls(sprite);
-		sprite.play();
+		addPlaybackControls(this); 
+		this.play();
+	}.bind(sprite);
 
-		//Full sprite sheet preview
-		var desc = {
-			width: sprite.sheet.width,
-			height: sprite.sheet.height,
-		};
-		sheet = new Sprite("jebsheet.png", desc);
-		sheet.onload = function () {
-			sheet.element.style.position = "relative";
-			sheet.element.style.left = 4;
-			sheet.element.style.top = 10;
-			sheet.element.style.width = 3.0 * sprite.element.width;
-			sheet.element.style.height = 3.0 * sprite.element.width / sprite.sheet.width * sprite.sheet.height;
-		}
-	}
 </script>
 </body>
 </html>
