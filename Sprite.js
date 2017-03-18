@@ -35,11 +35,8 @@ Sprite.prototype.init = function(desc) {
 	this.canvasY = desc.y === undefined ? 0 : desc.y;
 
 	//private
-	this.loopFrame = 0;
 	this.playFrame = 0;
 	this.playOffset = 0;
-	this.playRange = this.frameCount;
-	this.drawFrame = 0;
 
 	//DOM
 	if(desc.canvas) {
@@ -104,37 +101,38 @@ Sprite.prototype.step = function(timestamp) {
 
 	if( timestamp - this.playTime > this._frameTime ) {
 		this.playTime = timestamp;
-		this.loopFrame++;
-		this.loopFrame %= (this.playRange * 2); //2x range for bounce looping
+		this.playFrame++;
+		this.playFrame %= (this.playRange * 2); //2x range for bounce looping
 		repaint = true;
 		
-		if( this.loop == "once" && this.loopFrame >= this.playRange ) {
+		if( this.loop == "once" && this.playFrame >= this.playRange ) {
 			this.pause();
 			return;
 		}
 	}
 
 	if( repaint ) {
+		var paintFrame;
 		//bounce
 		if( this.loop == "bounce" || this.loop == "bounceonce" ) {
-			if( this.loopFrame < this.playRange )	this.playFrame = this.loopFrame;
-			else 									this.playFrame = this.playRange - (this.loopFrame - this.playRange) - 1;
+			if( this.playFrame < this.playRange )	paintFrame = this.playFrame;
+			else 									paintFrame = this.playRange - (this.playFrame - this.playRange) - 1;
 		}
 		//forever & once
 		else {
-			this.playFrame = this.loopFrame % this.playRange;
+			paintFrame = this.playFrame % this.playRange;
 		}
 
-		this.drawFrame =  this.playFrame + this.playOffset;
-		this.draw(this.drawFrame);
+		var f =  paintFrame + this.playOffset;
+		this.draw(f);
 
 		if( this.loop == "bounceonce" ) {
-			if( this.loopFrame == this.playRange * 2 - 1) this.pause();
+			if( this.playFrame == this.playRange * 2 - 1) this.pause();
 		}
 
 		//TODO: not sure if dispatching events at 60 hz is wise		
 		var ev = new Event('frame');
-		ev.frame = this.drawFrame;
+		ev.frame = f;
 		this.dispatchEvent(ev);	
 	}
 	
@@ -142,6 +140,7 @@ Sprite.prototype.step = function(timestamp) {
 }
 
 Sprite.prototype.draw = function(frame) {
+	frame = frame % this.frameCount;
 	var x = frame % this.colCount;
 	var y = (frame - x) / this.colCount;
 	x *= this.spriteWidth;
@@ -165,7 +164,7 @@ Sprite.prototype.pause = function() {
 
 Sprite.prototype.rewind = function() {
 	this.playTime = null;
-	this.loopFrame = 0;
+	this.playFrame = 0;
 	this.draw(0);
 }
 
@@ -224,13 +223,10 @@ document.registerElement('sprite-sheet', {prototype: Sprite.prototype});
 
 Sprite.prototype.addPixelClickPlayback=function() {
 	this.canvas.addEventListener("click", function(ev) {
-		var x = this.drawFrame % this.colCount;
-		var y = (this.drawFrame - x) / this.colCount;
-		x *= this.spriteWidth;
-		y *= this.spriteHeight;
-		
-		var px = this.context.getImageData(ev.clientX, ev.clientY, 1, 1).data;
+		console.debug(ev.offsetX + "," + ev.offsetY);
+		var px = this.context.getImageData(ev.offsetX, ev.offsetY,1,1).data;
 		if(px[3] > 0) this.play();
+		console.debug(px);
 	}.bind(this));
 }
 
