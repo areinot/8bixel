@@ -46,7 +46,7 @@ Sprite.prototype.init = function(desc) {
 		console.debug("canvas by ID");
 	} else {
 		var canvas = document.createElement("canvas");
-		canvas.style = {};
+		canvas.style = this.getAttribute("style") || {};
 		canvas.style.imageRendering = "pixelated"; //css3
 		canvas.width = canvas.style.width = desc.width;
 		canvas.height = canvas.style.height = desc.height;
@@ -148,6 +148,7 @@ Sprite.prototype.draw = function(frame, context) {
 	var y = (frame - x) / this.colCount;
 	x *= this.spriteWidth;
 	y *= this.spriteHeight;
+	context.clearRect(this.canvasX, this.canvasY, this.spriteWidth, this.canvas.height);
 	context.drawImage(this.sheet, x, y, this.spriteWidth, this.spriteHeight, this.canvasX, this.canvasY, this.spriteWidth, this.canvas.height);
 	this.drawFrame = frame;
 }
