@@ -218,7 +218,7 @@ Sprite.prototype.attachedCallback = function() {
 	this.addEventListener("complete", console.log("Completed!"));
 	this.addEventListener("frame", console.log("Drawn!"));
 
-	this.addPixelClickPlayback();
+	if(this.getAttribute("pixel-click")) this.addPixelClickPlayback();
 }
 Sprite.prototype.detachedCallback = function() {}
 
