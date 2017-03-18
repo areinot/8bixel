@@ -1,48 +1,100 @@
-var SpriteProto = Object.create(HTMLElement.prototype);
-SpriteProto.init = function(desc) {
+var Sprite  = {};
+Sprite.prototype = Object.create(HTMLElement.prototype);
+
+Object.defineProperty(Sprite.prototype, "frameCount", {
+	set:function(i) { this._frameCount = i ? Math.max(1, i) : 1; },
+	get:function()  { return this._frameCount; }
+});
+Object.defineProperty(Sprite.prototype, "frameRate", {
+	set:function(f) { 
+		this._frameRate = f ? Math.max(0.0001, f) : 1.0; 
+		this._frameTime = 1000.0/this._frameRate; 
+	},
+	get:function()  { return this._frameRate; }
+});
+Object.defineProperty(Sprite.prototype, "loop", {
+	set:function(str) {
+		if(str) {
+			var s = str.toLowerCase();
+			if(s == "once" || s=="forever" || s == "bounce" || s=="bounceonce") this._loop = s;
+		}
+	},
+	get:function() { return this._loop; }
+});
+
+Sprite.prototype.init = function(desc) {
 	//PARAMS
-	this.frameRate =  desc.frameRate  ? Math.max(0.001, desc.frameRate) : 1.0;
-	this.frameCount = desc.frameCount ? Math.max(1, desc.frameCount) : 1;
-	this.playFrame = 0;
-	this.playOffset = 0;
-	this.playRange = this.frameCount;
-	
+	this.frameCount = desc.frameCount;
+	this.frameRate = desc.frameRate;
+
 	this.loop = desc.loop ? desc.loop : "forever";
 	this.spriteWidth = desc.width;
 	this.spriteHeight = desc.height;
 	
-	//CALLBACKS
-	this.onframe = undefined; //function(frame)
-	this.onload = undefined; //function()
+	this.canvasX = desc.x === undefined ? 0 : desc.x;
+	this.canvasY = desc.y === undefined ? 0 : desc.y;
 
-	if( desc.sheetImage )	this.sheet = desc.sheetImage;
+	//private
+	this.loopFrame = 0;
+	this.playFrame = 0;
+	this.playOffset = 0;
+	this.playRange = this.frameCount;
+	this.drawFrame = 0;
+
+	//DOM
+	if(desc.canvas) {
+		this.setCanvas(desc.canvas);
+		console.debug("canvas by ID");
+	} else {
+		var canvas = document.createElement("canvas");
+		canvas.style = {};
+		canvas.style.imageRendering = "pixelated"; //css3
+		canvas.width = canvas.style.width = desc.width;
+		canvas.height = canvas.style.height = desc.height;
+		document.body.appendChild(canvas);
+		this.setCanvas(canvas);
+	}
+	
+	if( desc.sheet ) {
+			this.sheet = desc.sheet;
+			console.debug("sheet by ID");
+	}	
 	else if( desc.url ) 	this.sheet = new Image();
 
-	this.sheet.addEventListener("load", function() {
-		//DOM
-		this.element = document.createElement("canvas");
-		this.element.style = {};
-		this.element.style.imageRendering = "pixelated";	//css3
-		this.context = this.element.getContext("2d");
-		this.spriteWidth  = this.element.width  = this.element.style.width  = this.spriteWidth  ? this.spriteWidth  : this.sheet.width;
-		this.spriteHeight = this.element.height = this.element.style.height = this.spriteHeight ? this.spriteHeight : this.sheet.height;
-		this.colCount = Math.floor(this.sheet.width / this.spriteWidth);
-		this.rowCount = Math.floor(this.sheet.height / this.spriteHeight);
-		document.body.appendChild(this.element);
-
-		//CALLBACK		
+	if( desc.sheet && this.sheet.complete ) {
+		this.setSheet(this.sheet, desc.width, desc.height, desc.frameCount);
 		this.play();
-		this.dispatchEvent(new Event('load'));
-
-		//if( this.onload ) this.onload();
-	}.bind(this));
-
+		this.dispatchEvent(new Event('complete'));
+		console.debug("sheet image cached");
+	} else {
+		this.sheet.addEventListener("load", function(desc) {
+			this.setSheet(this.sheet, desc.width, desc.height, desc.frameCount);
+			this.play();
+			this.dispatchEvent(new Event('load'));
+			this.dispatchEvent(new Event('complete'));
+		}.bind(this, desc));
+	}
 	if( desc.url ) {
 		this.sheet.src = desc.url;
 	}
 }
 
-SpriteProto.step = function(timestamp) {
+Sprite.prototype.setCanvas = function(canvas) {
+	this.canvas = canvas;
+	this.context = this.canvas.getContext("2d");
+}
+
+Sprite.prototype.setSheet = function(sheet, spriteWidth, spriteHeight, frameCount) {
+	this.sheet = sheet;
+	this.spriteWidth  = spriteWidth  ? spriteWidth  : this.sheet.width;
+	this.spriteHeight = spriteHeight ? spriteHeight : this.sheet.height;
+	this.frameCount = frameCount;
+	this.colCount = Math.floor(this.sheet.width / this.spriteWidth);
+	this.rowCount = Math.floor(this.sheet.height / this.spriteHeight);
+	this.playRange = this.frameCount;
+}
+
+Sprite.prototype.step = function(timestamp) {
 	var repaint = false;
 	if( !this.playTime ) {
 		if(this.loop == "once") this.rewind();
@@ -50,59 +102,60 @@ SpriteProto.step = function(timestamp) {
 		repaint = true;
 	}
 
-	if( timestamp - this.playTime > 1000.0 / this.frameRate ) {
+	if( timestamp - this.playTime > this._frameTime ) {
 		this.playTime = timestamp;
-		this.playFrame++;
-		this.playFrame %= (this.playRange * 2); //2x range for bounce looping
+		this.loopFrame++;
+		this.loopFrame %= (this.playRange * 2); //2x range for bounce looping
 		repaint = true;
 		
-		if( this.loop == "once" && this.playFrame >= this.playRange ) {
+		if( this.loop == "once" && this.loopFrame >= this.playRange ) {
 			this.pause();
 			return;
 		}
 	}
 
 	if( repaint ) {
-		var paintFrame;
 		//bounce
-		if( this.loop == "bounce") {
-			if( this.playFrame < this.playRange )	paintFrame = this.playFrame;
-			else 									paintFrame = this.playRange - (this.playFrame - this.playRange) - 1;
+		if( this.loop == "bounce" || this.loop == "bounceonce" ) {
+			if( this.loopFrame < this.playRange )	this.playFrame = this.loopFrame;
+			else 									this.playFrame = this.playRange - (this.loopFrame - this.playRange) - 1;
 		}
 		//forever & once
 		else {
-			paintFrame = this.playFrame % this.playRange;
+			this.playFrame = this.loopFrame % this.playRange;
 		}
 
-		var f =  paintFrame + this.playOffset;
-		this.draw(f);
+		this.drawFrame =  this.playFrame + this.playOffset;
+		this.draw(this.drawFrame);
+
+		if( this.loop == "bounceonce" ) {
+			if( this.loopFrame == this.playRange * 2 - 1) this.pause();
+		}
 
 		//TODO: not sure if dispatching events at 60 hz is wise		
 		var ev = new Event('frame');
-		ev.frame = f;
-		this.dispatchEvent(ev);
-		//if(this.onframe) this.onframe(paintFrame + this.playOffset);		
+		ev.frame = this.drawFrame;
+		this.dispatchEvent(ev);	
 	}
 	
 	this.requestID = window.requestAnimationFrame(this.step.bind(this));
 }
 
-SpriteProto.draw = function(frame) {
-	frame = frame % this.frameCount;
+Sprite.prototype.draw = function(frame) {
 	var x = frame % this.colCount;
 	var y = (frame - x) / this.colCount;
 	x *= this.spriteWidth;
 	y *= this.spriteHeight;
-	this.context.drawImage(this.sheet, x, y, this.spriteWidth, this.spriteHeight, 0, 0, this.element.width, this.element.height);
+	this.context.drawImage(this.sheet, x, y, this.spriteWidth, this.spriteHeight, this.canvasX, this.canvasY, this.spriteWidth, this.canvas.height);
 }
 
-SpriteProto.play = function(start, range) {
+Sprite.prototype.play = function(start, range) {
 	if( start !== undefined ) this.playOffset = start;
 	if( range !== undefined ) this.playRange = range;
 	this.step();
 }
 
-SpriteProto.pause = function() {
+Sprite.prototype.pause = function() {
 	if( this.requestID ) {
 		window.cancelAnimationFrame(this.requestID);
 		this.requestID = null;
@@ -110,20 +163,26 @@ SpriteProto.pause = function() {
 	}
 }
 
-SpriteProto.rewind = function() {
+Sprite.prototype.rewind = function() {
 	this.playTime = null;
-	this.playFrame = 0;
+	this.loopFrame = 0;
 	this.draw(0);
 }
 
-SpriteProto.isPlaying = function() {
+Sprite.prototype.isPlaying = function() {
 	return this.requestID !== null && this.requestID !== undefined;
 }
 
-SpriteProto.createdCallback = function() {}
-SpriteProto.attachedCallback = function() {
+Sprite.prototype.createdCallback = function() {}
+Sprite.prototype.attachedCallback = function() {
 	var desc = {
 		url: this.getAttribute("src"),
+		sheet: document.getElementById(this.getAttribute("srcID")),
+		
+		x: this.getAttribute("canvasX"),
+		y: this.getAttribute("canvasY"),
+		canvas: document.getElementById(this.getAttribute("canvasID")),
+
 		width: Number.parseInt(this.getAttribute("width")),
 		height: Number.parseInt(this.getAttribute("height")),
 		frameCount: Number.parseInt(this.getAttribute("frame-count")),
@@ -131,35 +190,49 @@ SpriteProto.attachedCallback = function() {
 		loop: this.getAttribute("loop") //once, forever, bounce
 	};
 
+	//Handle both <sprite-sheet> and <img> elements
+	if(desc.sheet && desc.sheet.sheet)		desc.sheet = desc.sheet.sheet;
+	if(desc.canvas && desc.canvas.canvas) 	desc.canvas = desc.canvas.canvas;
+
 	//error checking
 	var invalidErr = "Invalid <sprite-sheet> property: ";
-	if( !desc.url ) console.error(invalidErr + "src [" + desc.url + "] must be a valid image url.");
+	if( !desc.url && !desc.sheet ) console.error(invalidErr + "src [" + desc.url + "] must be a valid image url.");
 	if( desc.width <= 0 || 		!Number.isInteger(desc.width) ) console.error(invalidErr + "width [" + desc.width + "] must be valid integer.");
 	if( desc.height <= 0 || 	!Number.isInteger(desc.height) ) console.error(invalidErr + "height [" + desc.height + "] must be valid integer.");
 	if( desc.frameCount <= 0 || !Number.isInteger(desc.frameCount) ) console.error(invalidErr + "frame-count [" + desc.frameCount + "] must be a valid integer.");
 	if( desc.frameRate <= 0 ||	!Number.isFinite(desc.frameRate) ) console.error(invalidErr + "frame-rate [" + desc.frameRate + "] must be a valid float.");
 	if( desc.loop ) {
 		desc.loop = desc.loop.toLowerCase();
-		if( desc.loop != "once" && desc.loop != "forever" && desc.loop != "bounce" ) console.error(invalidErr + "loop  [" + desc.loop + "] must be set to 'once', 'forever', or 'bounce'.");
+		if( desc.loop != "once" &&
+			desc.loop != "forever" &&
+			desc.loop != "bounce" &&
+			desc.loop != "bounceonce" )
+			console.error(invalidErr + "loop  [" + desc.loop + "] must be set to 'once', 'forever', 'bounce' or 'bounceonce'.");
 	}
 	
 	this.init(desc);
 	this.addEventListener("load", console.log("Loaded!"));
+	this.addEventListener("complete", console.log("Completed!"));
 	this.addEventListener("frame", console.log("Drawn!"));
+
+	this.addPixelClickPlayback();
 }
-SpriteProto.detachedCallback = function() {}
+Sprite.prototype.detachedCallback = function() {}
 
-/*
-Object.defineProperty(SpriteProto, "_width", 		{value: 256, 			writable: true});
-Object.defineProperty(SpriteProto, "_height", 		{value: 256, 			writable: true});
-Object.defineProperty(SpriteProto, "_frameCount", 	{value: 1, 				writable: true});
-Object.defineProperty(SpriteProto, "_frameRate", 	{value: 1, 				writable: true});
-Object.defineProperty(SpriteProto, "_loop", 		{value: "forever", 		writable: true});
-*/
-
-document.registerElement('sprite-sheet', {prototype: SpriteProto});
+document.registerElement('sprite-sheet', {prototype: Sprite.prototype});
 
 
+Sprite.prototype.addPixelClickPlayback=function() {
+	this.canvas.addEventListener("click", function(ev) {
+		var x = this.drawFrame % this.colCount;
+		var y = (this.drawFrame - x) / this.colCount;
+		x *= this.spriteWidth;
+		y *= this.spriteHeight;
+		
+		var px = this.context.getImageData(ev.clientX, ev.clientY, 1, 1).data;
+		if(px[3] > 0) this.play();
+	}.bind(this));
+}
 
 /*
 	//some play pause feature cruft
