@@ -37,6 +37,8 @@ Sprite.prototype.init = function(desc) {
 	//private
 	this.playFrame = 0;
 	this.playOffset = 0;
+	this.playRange = this.frameCount;
+	this.drawFrame = 0;
 
 	//DOM
 	if(desc.canvas) {
@@ -139,13 +141,15 @@ Sprite.prototype.step = function(timestamp) {
 	this.requestID = window.requestAnimationFrame(this.step.bind(this));
 }
 
-Sprite.prototype.draw = function(frame) {
+Sprite.prototype.draw = function(frame, context) {
+	context = context || this.context;
 	frame = frame % this.frameCount;
 	var x = frame % this.colCount;
 	var y = (frame - x) / this.colCount;
 	x *= this.spriteWidth;
 	y *= this.spriteHeight;
-	this.context.drawImage(this.sheet, x, y, this.spriteWidth, this.spriteHeight, this.canvasX, this.canvasY, this.spriteWidth, this.canvas.height);
+	context.drawImage(this.sheet, x, y, this.spriteWidth, this.spriteHeight, this.canvasX, this.canvasY, this.spriteWidth, this.canvas.height);
+	this.drawFrame = frame;
 }
 
 Sprite.prototype.play = function(start, range) {
@@ -222,9 +226,16 @@ document.registerElement('sprite-sheet', {prototype: Sprite.prototype});
 
 
 Sprite.prototype.addPixelClickPlayback=function() {
+	
+	this.selectionCanvas = document.createElement('canvas');
+	this.selectionContext = this.selectionCanvas.getContext('2d');
+	this.selectionCanvas.width = this.canvas.width;
+	this.selectionCanvas.height = this.canvas.height;
+
 	this.canvas.addEventListener("click", function(ev) {
 		console.debug(ev.offsetX + "," + ev.offsetY);
-		var px = this.context.getImageData(ev.offsetX, ev.offsetY,1,1).data;
+		this.draw(this.drawFrame, this.selectionContext);
+		var px = this.selectionContext.getImageData(ev.offsetX, ev.offsetY,1,1).data;
 		if(px[3] > 0) this.play();
 		console.debug(px);
 	}.bind(this));
