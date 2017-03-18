@@ -237,6 +237,7 @@ Sprite.prototype.addPixelClickPlayback=function() {
 		this.draw(this.drawFrame, this.selectionContext);
 		var px = this.selectionContext.getImageData(ev.offsetX, ev.offsetY,1,1).data;
 		if(px[3] > 0) {
+			this.rewind();
 			this.play();
 			console.debug("play!");
 		}
