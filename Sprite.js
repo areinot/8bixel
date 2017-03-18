@@ -236,7 +236,10 @@ Sprite.prototype.addPixelClickPlayback=function() {
 		console.debug(ev.offsetX + "," + ev.offsetY);
 		this.draw(this.drawFrame, this.selectionContext);
 		var px = this.selectionContext.getImageData(ev.offsetX, ev.offsetY,1,1).data;
-		if(px[3] > 0) this.play();
+		if(px[3] > 0) {
+			this.play();
+			console.debug("play!");
+		}
 		console.debug(px);
 	}.bind(this));
 }
