@@ -43,7 +43,6 @@ Sprite.prototype.init = function(desc) {
 	//DOM
 	if(desc.canvas) {
 		this.setCanvas(desc.canvas);
-		console.debug("canvas by ID");
 	} else {
 		var canvas = document.createElement("canvas");
 		canvas.style = this.getAttribute("style") || {};
@@ -54,18 +53,20 @@ Sprite.prototype.init = function(desc) {
 		this.setCanvas(canvas);
 	}
 	
-	if( desc.sheet ) {
-			this.sheet = desc.sheet;
-			console.debug("sheet by ID");
-	}	
-	else if( desc.url ) 	this.sheet = new Image();
+	if( desc.image ) {
+		this.sheet = desc.image;
+	} 
+	else if( desc.url ) {
+		this.sheet = new Image();		
+	}
 
-	if( desc.sheet && this.sheet.complete ) {
+	if( desc.image && this.sheet.complete ) { 
+		//image already loaded
 		this.setSheet(this.sheet, desc.width, desc.height, desc.frameCount);
 		this.play();
 		this.dispatchEvent(new Event('complete'));
-		console.debug("sheet image cached");
-	} else {
+	} else { 
+		//image needs async onload callback
 		this.sheet.addEventListener("load", function(desc) {
 			this.setSheet(this.sheet, desc.width, desc.height, desc.frameCount);
 			this.play();
@@ -83,8 +84,8 @@ Sprite.prototype.setCanvas = function(canvas) {
 	this.context = this.canvas.getContext("2d");
 }
 
-Sprite.prototype.setSheet = function(sheet, spriteWidth, spriteHeight, frameCount) {
-	this.sheet = sheet;
+Sprite.prototype.setSheet = function(image, spriteWidth, spriteHeight, frameCount) {
+	this.sheet = image;
 	this.spriteWidth  = spriteWidth  ? spriteWidth  : this.sheet.width;
 	this.spriteHeight = spriteHeight ? spriteHeight : this.sheet.height;
 	this.frameCount = frameCount;
@@ -106,38 +107,44 @@ Sprite.prototype.step = function(timestamp) {
 		this.playFrame++;
 		this.playFrame %= (this.playRange * 2); //2x range for bounce looping
 		repaint = true;
-		
-		if( this.loop == "once" && this.playFrame >= this.playRange ) {
-			this.pause();
-			return;
-		}
 	}
 
 	if( repaint ) {
 		var paintFrame;
-		//bounce
+		
+		//interpret painted frame from play frame and looping
 		if( this.loop == "bounce" || this.loop == "bounceonce" ) {
+			//bounce
 			if( this.playFrame < this.playRange )	paintFrame = this.playFrame;
 			else 									paintFrame = this.playRange - (this.playFrame - this.playRange) - 1;
-		}
-		//forever & once
-		else {
+		} else { 
+			//forever & once
 			paintFrame = this.playFrame % this.playRange;
 		}
+		paintFrame += this.playOffset;
+		this.draw(paintFrame);
 
-		var f =  paintFrame + this.playOffset;
-		this.draw(f);
-
-		if( this.loop == "bounceonce" ) {
-			if( this.playFrame == this.playRange * 2 - 1) this.pause();
-		}
-
-		//TODO: not sure if dispatching events at 60 hz is wise		
+		//TODO: not sure if dispatching events at 60 hz is wise or if a single callback would be cleaner
 		var ev = new Event('frame');
-		ev.frame = f;
+		ev.frame = paintFrame;
 		this.dispatchEvent(ev);	
+
+		//pause play-once loop types
+		if( this.loop == "once" ) {
+			if(this.playFrame == this.playRange - 1) {
+				this.pause();
+				this.rewind();
+				return;
+			}
+		}
+		else if( this.loop == "bounceonce" ) {
+			if(this.playFrame == this.playRange * 2 - 1) {
+				this.pause();
+				this.rewind();
+				return;
+			}
+		}
 	}
-	
 	this.requestID = window.requestAnimationFrame(this.step.bind(this));
 }
 
@@ -170,7 +177,6 @@ Sprite.prototype.pause = function() {
 Sprite.prototype.rewind = function() {
 	this.playTime = null;
 	this.playFrame = 0;
-	this.draw(0);
 }
 
 Sprite.prototype.isPlaying = function() {
@@ -181,7 +187,7 @@ Sprite.prototype.createdCallback = function() {}
 Sprite.prototype.attachedCallback = function() {
 	var desc = {
 		url: this.getAttribute("src"),
-		sheet: document.getElementById(this.getAttribute("srcID")),
+		image: undefined,
 		
 		x: this.getAttribute("canvasX"),
 		y: this.getAttribute("canvasY"),
@@ -195,12 +201,11 @@ Sprite.prototype.attachedCallback = function() {
 	};
 
 	//Handle both <sprite-sheet> and <img> elements
-	if(desc.sheet && desc.sheet.sheet)		desc.sheet = desc.sheet.sheet;
 	if(desc.canvas && desc.canvas.canvas) 	desc.canvas = desc.canvas.canvas;
 
 	//error checking
 	var invalidErr = "Invalid <sprite-sheet> property: ";
-	if( !desc.url && !desc.sheet ) console.error(invalidErr + "src [" + desc.url + "] must be a valid image url.");
+	if( !desc.url && !desc.image ) console.error(invalidErr + "src [" + desc.url + "] must be a valid image url.");
 	if( desc.width <= 0 || 		!Number.isInteger(desc.width) ) console.error(invalidErr + "width [" + desc.width + "] must be valid integer.");
 	if( desc.height <= 0 || 	!Number.isInteger(desc.height) ) console.error(invalidErr + "height [" + desc.height + "] must be valid integer.");
 	if( desc.frameCount <= 0 || !Number.isInteger(desc.frameCount) ) console.error(invalidErr + "frame-count [" + desc.frameCount + "] must be a valid integer.");
@@ -219,12 +224,14 @@ Sprite.prototype.attachedCallback = function() {
 	this.addEventListener("complete", console.log("Completed!"));
 	this.addEventListener("frame", console.log("Drawn!"));
 
-	if(this.getAttribute("pixel-click")) this.addPixelClickPlayback();
+
+	if(this.getAttribute("pixel-click")) this.addClickPlayback();//this.addPixelClickPlayback();
 }
 Sprite.prototype.detachedCallback = function() {}
 
 document.registerElement('sprite-sheet', {prototype: Sprite.prototype});
 
+/// Playback GUI cruft
 
 Sprite.prototype.addPixelClickPlayback=function() {
 	
@@ -246,25 +253,21 @@ Sprite.prototype.addPixelClickPlayback=function() {
 	}.bind(this));
 }
 
-/*
-	//some play pause feature cruft
-
-	var sprite = document.body.getElementsByTagName("sprite-sheet")[0];
-	sprite.addEventListener("load", function() {
-		this.element.style.border = "1px solid #0f5";
-		this.element.addEventListener("contextmenu", function(e) { e.preventDefault(); } );
-		this.element.addEventListener("mousedown", function(e) {
-			if(e.button == 0) {
-				if(this.isPlaying()) {
-					this.pause();
-					this.element.style.border = "1px solid #d00";
-				} else {
-	 				this.play();
-	 				this.element.style.border = "1px solid #0f5";
-	 			}
-			} else if( e.button == 2) {
-				this.rewind();
-			}
-		}.bind(this));
-	}.bind(sprite));
-*/
+Sprite.prototype.addClickPlayback=function() {
+	this.canvas.style.border = "1px solid #0f5";
+	this.canvas.addEventListener("contextmenu", function(e) { e.preventDefault(); } );
+	this.canvas.addEventListener("mousedown", function(e) {
+		if(e.button == 0) {
+			if(this.isPlaying()) {
+				this.pause();
+				this.canvas.style.border = "1px solid #d00";
+			} else {
+ 				this.play();
+ 				this.canvas.style.border = "1px solid #0f5";
+ 			}
+		} else if( e.button == 2) {
+			this.rewind();
+			this.draw(0);
+		}
+	}.bind(this));
+}
