@@ -277,4 +277,5 @@ class Sprite extends HTMLElement {
 	}
 }
 
+customElements = customElements || customElementsRegistry;
 customElements.define('sprite-sheet', Sprite);
