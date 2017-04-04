@@ -1,23 +1,10 @@
-/*class AppDrawer extends HTMLElement {
-	get disabled() { return this.hasAttribute('disabled'); }
-	set disabled(val) {
-		if(val) this.setAttribute('disabled', '');
-		else  	this.removeAttribute('disabled');
-	}
-	constructor() {
-		super();
-	}
-}
-customElements.define('app-drawer', AppDrawer);
-*/
-
+if(!HTMLElement) var HTMLElement = {};
 
 class Sprite extends HTMLElement {
-
 	get frameCount()  { return this._frameCount }
 	set frameCount(i) { this._frameCount = i ? Math.max(1, i) : 1; }
 
-	get frameRate() { return this._frameRate; }
+	get frameRate()  { return this._frameRate; }
 	set frameRate(f) {
 		this._frameRate = f ? Math.max(0.0001, f) : 1.0;
 		this._frameTime = 1000.0/this._frameRate;
@@ -29,6 +16,29 @@ class Sprite extends HTMLElement {
 			var s = str.toLowerCase();
 			if(s == "once" || s=="forever" || s == "bounce" || s=="bounceonce") this._loop = s;
 		}
+	}
+
+	get canvas() { return this._canvas; }
+	set canvas(canvas) {
+		if(canvas) {
+			this._canvas = canvas;
+			this._context = this.canvas.getContext("2d");
+		}
+	}
+	get context() { return this._context; }
+
+	setSheet(image, spriteWidth, spriteHeight, frameCount) {
+		this.sheet = image;
+		this.spriteWidth  = spriteWidth  ? spriteWidth  : this.sheet.width;
+		this.spriteHeight = spriteHeight ? spriteHeight : this.sheet.height;
+		this.frameCount = frameCount;
+		this.colCount = Math.floor(this.sheet.width / this.spriteWidth);
+		this.rowCount = Math.floor(this.sheet.height / this.spriteHeight);
+		this.playRange = this.frameCount;
+	}
+
+	constructor() {
+		super();
 	}
 
 	init(desc) {
@@ -51,15 +61,15 @@ class Sprite extends HTMLElement {
 
 		//DOM
 		if(desc.canvas) {
-			this.setCanvas(desc.canvas);
+			this.canvas = desc.canvas;
 		} else {
 			var canvas = document.createElement("canvas");
-			canvas.style = this.getAttribute("style") || {};
+			canvas.style = {};
 			canvas.style.imageRendering = "pixelated"; //css3
 			canvas.width = canvas.style.width = desc.width;
 			canvas.height = canvas.style.height = desc.height;
-			document.body.appendChild(canvas);
-			this.setCanvas(canvas);
+			this.appendChild(canvas);
+			this.canvas = canvas;
 		}
 		
 		if( desc.image ) {
@@ -86,21 +96,6 @@ class Sprite extends HTMLElement {
 		if( desc.url ) {
 			this.sheet.src = desc.url;
 		}
-	}
-
-	setCanvas(canvas) {
-		this.canvas = canvas;
-		this.context = this.canvas.getContext("2d");
-	}
-
-	setSheet(image, spriteWidth, spriteHeight, frameCount) {
-		this.sheet = image;
-		this.spriteWidth  = spriteWidth  ? spriteWidth  : this.sheet.width;
-		this.spriteHeight = spriteHeight ? spriteHeight : this.sheet.height;
-		this.frameCount = frameCount;
-		this.colCount = Math.floor(this.sheet.width / this.spriteWidth);
-		this.rowCount = Math.floor(this.sheet.height / this.spriteHeight);
-		this.playRange = this.frameCount;
 	}
 
 	step(timestamp) {
@@ -189,6 +184,12 @@ class Sprite extends HTMLElement {
 		this.draw(this.playOffset);
 	}
 
+	lastFrame() {
+		this.playTime = null;
+		this.playFrame = this.playOffset + this.playRange - 1;;
+		this.draw(this.playFrame);
+	}
+
 	isPlaying() {
 		return this.requestID !== null && this.requestID !== undefined;
 	}
@@ -232,14 +233,12 @@ class Sprite extends HTMLElement {
 		this.addEventListener("load", console.log("Loaded!"));
 		this.addEventListener("complete", console.log("Completed!"));
 		this.addEventListener("frame", console.log("Drawn!"));
-
-
-		if(this.getAttribute("pixel-click")) this.addClickPlayback();//this.addPixelClickPlayback();
+		if(this.getAttribute("element-click")) this.addClickPlayback();
+		if(this.getAttribute("pixel-click"))   this.addPixelClickPlayback();
 	}
 	
 	/// Playback GUI cruft
 	addPixelClickPlayback() {
-		
 		this.selectionCanvas = document.createElement('canvas');
 		this.selectionContext = this.selectionCanvas.getContext('2d');
 		this.selectionCanvas.width = this.canvas.width;
@@ -249,6 +248,9 @@ class Sprite extends HTMLElement {
 			console.debug(ev.offsetX + "," + ev.offsetY);
 			this.draw(this.drawFrame, this.selectionContext);
 			var px = this.selectionContext.getImageData(ev.offsetX, ev.offsetY,1,1).data;
+			ev.pixel = px;
+			this.dispatchEvent("clickpixel", ev);
+
 			if(px[3] > 0) {
 				this.rewind();
 				this.play();
@@ -259,16 +261,16 @@ class Sprite extends HTMLElement {
 	}
 
 	addClickPlayback() {
-		this.canvas.style.border = "1px solid #0f5";
+		this.canvas.style.boxShadow = "inset 0px 0px 0px 1px #0f5";
 		this.canvas.addEventListener("contextmenu", function(e) { e.preventDefault(); } );
 		this.canvas.addEventListener("mousedown", function(e) {
 			if(e.button == 0) {
 				if(this.isPlaying()) {
 					this.pause();
-					this.canvas.style.border = "1px solid #d00";
+					this.canvas.style.boxShadow = "inset 0px 0px 0px 1px #d00";
 				} else {
 	 				this.play();
-	 				this.canvas.style.border = "1px solid #0f5";
+	 				this.canvas.style.boxShadow = "inset 0px 0px 0px 1px #0f5";
 	 			}
 			} else if( e.button == 2) {
 				this.rewind();
@@ -276,6 +278,5 @@ class Sprite extends HTMLElement {
 		}.bind(this));
 	}
 }
-
-customElements = customElements || customElementsRegistry;
-customElements.define('sprite-sheet', Sprite);
+var CE = customElements || customElementsRegistry;
+CE.define('sprite-sheet', Sprite);

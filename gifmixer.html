@@ -1,17 +1,82 @@
 <html>
 <head>
 	<title>gif mixer</title>
-	<script src="Sprite.js"></script>    
+	<script src="Sprite.js"></script> 
 </head>
-<body bgcolor='#222'>
-	<!--sprite-sheet src="jebsheet.png" width="256" height="256" frame-count="41" frame-rate="30" loop="bounce" id="jebsprite"></sprite-sheet>
-	<sprite-sheet src="sunsheet.png" width="194" height="154" frame-count="60" frame-rate="20" loop="forever" id="sunsprite"></sprite-sheet>
-	<sprite-sheet srcID="sunsprite" width="194" height="154" frame-count="60" frame-rate="20" loop="forever"></sprite-sheet>
-	<sprite-sheet srcID="jebsprite" canvasID="jebsprite" canvasX="128" width="256" height="256" frame-count="41" frame-rate="30" loop="bounce"></sprite-sheet-->
+<style>
+button {
+	font-size: 8;
+	font-weight: bold;
+	border: 1px solid grey;
+}
+button:hover {
+	border: 1px solid white;
+}
+</style>
+<body bgcolor='#222' text="#ddd">
+<!--
+<span style="position:relative; width:120px; height:140">
+	<sprite-sheet src="layer0.png" width="120" height="140" frame-count="10" frame-rate="10" loop="forever" style="position:absolute; width:120; height:140;"></sprite-sheet>
+	<sprite-sheet src="layer1.png" width="120" height="140" frame-count="10" frame-rate="10" loop="bounceonce" style="position:absolute; width:120; height:140;" element-click="true"></sprite-sheet>
+</span>
+<span>
+	<span style="width:128; height:148"></span>
+	<sprite-sheet src="sunsheet.png" width="194" height="154" frame-count="120" frame-rate="20" loop="forever" onclick="console.log('hey.')"></sprite-sheet>
+	<script>
+	//	var sun = document.getElementById("sunshine");
+	//	sun.addEventListener("click", function(ev) {console.log("here comes the sun, doo doo doodoo.")});
+	</script>
+</span>
+-->
+<sprite-sheet 
+	id="sprite"
+	src="layer0.png" 
+	width="120" 
+	height="140" 
+	frame-count="10" 
+	frame-rate="10" 
+	loop="forever" 
+	style="width:120; height:140;">
+</sprite-sheet>
+<br>
+<script>
+	var sprite = document.getElementById("sprite");
+	home = function(ev) { 
+		this.rewind(); 
+	}.bind(sprite);
 
-	<sprite-sheet src="layer0.png" width="120" height="140" frame-count="10" frame-rate="10" loop="forever" style="position:absolute"></sprite-sheet>
-	<sprite-sheet src="layer1.png" width="120" height="140" frame-count="10" frame-rate="10" loop="once"  style="position:absolute"  pixel-click="true"></sprite-sheet>
-	<sprite-sheet src="sunsheet.png" width="194" height="154" frame-count="60" frame-rate="20" loop="forever"></sprite-sheet>
-	
+	end = function(ev) { 
+		this.lastFrame();
+	}.bind(sprite);
+
+	play = function(ev) {
+		if(this.isPlaying()) {
+			this.pause();
+		} else {
+			this.play();
+		}
+		updatePlayPause(this);
+	}.bind(sprite);
+
+	stop = function(ev) {
+		this.pause();
+		this.rewind();
+		updatePlayPause(this);
+	}.bind(sprite, play);
+
+
+	updatePlayPause = function(sprite) {
+		el = document.getElementById("playbutton");
+		el.innerHTML = sprite.isPlaying() ? "||" : ">";
+	}
+
+</script>
+<div style="width:120; height:24; border: 1px solid black;">
+	<button style="width:24; height:24;" onclick="home(event);"> |< </button>
+	<button style="width:24; height:24;" onclick="stop(event);"> [ ] </button>
+	<button style="width:24; height:24;" onclick="play(event);" id="playbutton"> > </button>
+	<button style="width:24; height:24;" onclick="end(event);"> >| </button>
+</div>
+
 </body>
 </html>
