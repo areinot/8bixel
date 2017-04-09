@@ -80,8 +80,8 @@ class Sprite extends HTMLElement {
 		this.canvasY = fancyDefined(desc.y) ? 0 : desc.y;
 
 		this.drawFrame = 0;		//Last drawn sprite sheet frame [0-framecount). This is the frame currently displayed on canvas.
-		this.playFrame = 0; 	//Iterator for keeping track of the play loop, [0-playRange * 2)
-								//Note: to implement bounce looping, playFrame goes through 2x playRange frames before resetting to 0
+		this.playTick = 0; 	//Iterator for keeping track of the play loop, [0-playRange * 2)
+								//Note: to implement bounce looping, playTick goes through 2x playRange frames before resetting to 0
 		
 		this.playOffset = fancyDefined(desc.playOffset) ? 0 : desc.playOffset;	//Sprite sheet frame the play loop starts on
 		this.playRange =  fancyDefined(desc.playRange)  ? 0 : desc.playRange;	//Span of sprite sheet frames the play loop covers
@@ -135,55 +135,55 @@ class Sprite extends HTMLElement {
 		}
 	}
 
-	//interpret painted frame from play frame and looping
-	computeDrawFrame(playFrame) {
+	//interpret painted frame from play tick and looping
+	computeDrawFrame(tick) {
 		var paintFrame;
 		if( this.loop == "bounce" || this.loop == "bounceonce" ) {
 			//bounce
-			playFrame %= this.playRange * 2;
-			if( playFrame < this.playRange )	paintFrame = playFrame;
-			else 								paintFrame = this.playRange - (playFrame - this.playRange) - 1;
+			tick %= this.playRange * 2;
+			if( tick < this.playRange )	paintFrame = tick;
+			else 						paintFrame = this.playRange - (tick - this.playRange) - 1;
 		} else { 
 			//forever & once
-			paintFrame = playFrame % this.playRange;
+			paintFrame = tick % this.playRange;
 		}
 		return paintFrame + this.playOffset;
 	}
 
-	//constrain playFrame to playRange*2, skip any duplicate frames during bounces
-	boundPlayFrame(playFrame) {
-		playFrame = fancyMod(playFrame, this.playRange * 2); 
+	//constrain playTick to playRange*2, skip any duplicate frames during bounces
+	boundPlayTick(tick) {
+		tick = fancyMod(tick, this.playRange * 2); 
 		if( this.loop == "bounce" || this.loop == "bounceonce" ) {
 			// skip far bounce frame
-			if(playFrame == this.playRange) { 
-				playFrame++;
+			if(tick == this.playRange) { 
+				tick++;
 			}
 			// skip 0 bounce frame if looping bounce
-			if(this.loop == "bounce" && playFrame == this.playRange*2-1) { 
-				playFrame++;
+			if(this.loop == "bounce" && tick == this.playRange*2-1) { 
+				tick++;
 			}
-			playFrame %= (this.playRange * 2);
+			tick %= this.playRange * 2;
 		}
-		return playFrame;
+		return tick;
 	}
 
 	step(timestamp) {
 		var repaint = false;
 		if( !this._playStamp ) {
-			if(this.loop == "once") this.playFrame = 0;
+			if(this.loop == "once") this.playTick = 0;
 			this._playStamp = timestamp;
 			repaint = true;
 		}
 
 		if( timestamp - this._playStamp > this._frameTime ) {
 			this._playStamp = timestamp;
-			this.playFrame++;
-			this.playFrame = this.boundPlayFrame(this.playFrame);
+			this.playTick++;
+			this.playTick = this.boundPlayTick(this.playTick);
 			repaint = true;
 		}
 
 		if( repaint ) {
-			var paintFrame = this.computeDrawFrame( this.playFrame );
+			var paintFrame = this.computeDrawFrame( this.playTick );
 			this.draw(paintFrame);
 			console.debug("drawFrame " + paintFrame);
 
@@ -194,16 +194,16 @@ class Sprite extends HTMLElement {
 
 			//pause play-once loop types
 			if( this.loop == "once" ) {
-				if(this.playFrame == this.playRange - 1) {
+				if(this.playTick == this.playRange - 1) {
 					this.pause();
-					this.playFrame = 0;
+					this.playTick = 0;
 					return;
 				}
 			}
 			else if( this.loop == "bounceonce" ) {
-				if(this.playFrame == this.playRange * 2 - 1) {
+				if(this.playTick == this.playRange * 2 - 1) {
 					this.pause();
-					this.playFrame = 0;
+					this.playTick = 0;
 					return;
 				}
 			}
@@ -246,26 +246,25 @@ class Sprite extends HTMLElement {
 	}
 
 	firstFrame() {
-		this.playFrame = 0;
+		this.playTick = 0;
 		this.draw(this.playOffset);
 	}
 
 	previousFrame() {
-		this.playFrame = boundPlayFrame(this.playFrame-1);
-		var df = this.computeDrawFrame(this.playFrame);
+		this.playTick = Math.min(this.playTick-1, this.playRange-1);
+		var df = this.computeDrawFrame(this.playTick);
 		this.draw(df);
 	}
 
 	nextFrame() {
-		this.playFrame = boundPlayFrame(this.playFrame+1);
-		var df = this.computeDrawFrame(this.playFrame);
+		this.playTick = Math.min(this.playTick+1, this.playRange-1);
+		var df = this.computeDrawFrame(this.playTick);
 		this.draw(df);
 	}
 
 	lastFrame() {
-		//TODO: should bounce end up at frame 0 or frame range-1?
-		this.playFrame = this.playRange - 1;
-		this.draw(this.playOffset + this.playFrame);
+		this.playTick = this.playRange - 1;
+		this.draw(this.playOffset + this.playTick);
 	}
 
 	isPlaying() {
