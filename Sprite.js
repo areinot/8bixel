@@ -186,7 +186,7 @@ class Sprite extends HTMLElement {
 		if( repaint ) {
 			var paintFrame = this.computeDrawFrame( this.playTick );
 			this.draw(paintFrame);
-			
+				
 			//TODO: not sure if dispatching events at 60 hz is wise or if a single callback would be cleaner
 			var ev = new Event('frame');
 			ev.frame = paintFrame;
@@ -251,7 +251,8 @@ class Sprite extends HTMLElement {
 	}
 
 	previousFrame() {
-		this.playTick = Math.min(this.playTick-1, this.playRange-1);
+		this.playTick = Math.max(0.0, this.playTick-1);
+		this.playTick = Math.min(this.playTick, this.playRange-1);
 		var df = this.computeDrawFrame(this.playTick);
 		this.draw(df);
 	}
