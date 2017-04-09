@@ -1,5 +1,15 @@
 if(!HTMLElement) var HTMLElement = {};
 
+
+fancyMod=function(a,b) { return (a%b+b)%b; } //modulo that handles negative numbers properly, e.g. -1 % 4 = 3
+fancyBool=function(str) { 
+	switch(str.toLowerCase()) {
+		case "true": case "yes": case "1": return true;
+		default: return false;
+	} 
+}
+fancyDefined=function(v) { return v !== undefined && v !== null; }
+
 class Sprite extends HTMLElement {
 	get frameCount()  { return this._frameCount }
 	set frameCount(i) { this._frameCount = i ? Math.max(1, i) : 1; }
@@ -42,22 +52,47 @@ class Sprite extends HTMLElement {
 	}
 
 	init(desc) {
+		//VALIDATE
+		var invalidErr = "Invalid <sprite-sheet> property: ";
+		if( !desc.url && !desc.image ) console.error(invalidErr + "src [" + desc.url + "] must be a valid image url.");
+		if( !fancyDefined(desc.width) || 	desc.width <= 0 || 		!Number.isInteger(desc.width) )		console.error(invalidErr + "width [" + desc.width + "] must be positive integer.");
+		if( !fancyDefined(desc.height) || 	desc.height <= 0 || 	!Number.isInteger(desc.height) )	console.error(invalidErr + "height [" + desc.height + "] must be positive integer.");
+		if( !fancyDefined(desc.frameCount)|| desc.frameCount <= 0|| !Number.isInteger(desc.frameCount))	console.error(invalidErr + "frame-count [" + desc.frameCount + "] must be a positive integer.");
+		if( !fancyDefined(desc.frameRate) || desc.frameRate <= 0 ||	!Number.isFinite(desc.frameRate) )	console.error(invalidErr + "frame-rate [" + desc.frameRate + "] must be a positive float.");
+		if( fancyDefined(desc.loop) ) {
+			var loopstr = desc.loop.toLowerCase();
+			if( loopstr != "once" &&
+				loopstr != "forever" &&
+				loopstr != "bounce" &&
+				loopstr != "bounceonce" )
+				console.error(invalidErr + "loop  [" + desc.loop + "] must be set to 'once', 'forever', 'bounce' or 'bounceonce'.");
+		}
+		
 		//PARAMS
-		this.frameCount = desc.frameCount;
-		this.frameRate = desc.frameRate;
-
-		this.loop = desc.loop ? desc.loop : "forever";
 		this.spriteWidth = desc.width;
 		this.spriteHeight = desc.height;
-		
-		this.canvasX = desc.x === undefined ? 0 : desc.x;
-		this.canvasY = desc.y === undefined ? 0 : desc.y;
+		this.frameCount = desc.frameCount;	//Number of frames in the sprite sheet
+		this.frameRate = desc.frameRate;	//Frames per second
+		this.loop = desc.loop ? desc.loop : "forever"; //How time is converted into drawn frames
 
-		//private
-		this.playFrame = 0;
-		this.playOffset = 0;
-		this.playRange = this.frameCount;
-		this.drawFrame = 0;
+		//sprite offset when drawing on a larger canvas
+		this.canvasX = fancyDefined(desc.x) ? 0 : desc.x;
+		this.canvasY = fancyDefined(desc.y) ? 0 : desc.y;
+
+		this.drawFrame = 0;		//Last drawn sprite sheet frame [0-framecount). This is the frame currently displayed on canvas.
+		this.playFrame = 0; 	//Iterator for keeping track of the play loop, [0-playRange * 2)
+								//Note: to implement bounce looping, playFrame goes through 2x playRange frames before resetting to 0
+		
+		this.playOffset = fancyDefined(desc.playOffset) ? 0 : desc.playOffset;	//Sprite sheet frame the play loop starts on
+		this.playRange =  fancyDefined(desc.playRange)  ? 0 : desc.playRange;	//Span of sprite sheet frames the play loop covers
+																//Ex: A bounce loop with playRange 4 plays sheet frames 0,1,2,3,2,1
+		var startPlaying = fancyDefined(desc.playing) ? fancyBool(desc.playing) : true;
+		this._playStamp = null; //private, paused if null
+		this._requestID = null;
+
+		this.playOffset = Math.min(desc.playOffset, this.frameCount - 1);
+		this.playRange = Math.min(this.playOffset + desc.playRange, this.frameCount - 1);
+		this.playRange = Math.max(1, this.playRange - this.playOffset);
 
 		//DOM
 		if(desc.canvas) {
@@ -82,13 +117,15 @@ class Sprite extends HTMLElement {
 		if( desc.image && this.sheet.complete ) { 
 			//image already loaded
 			this.setSheet(this.sheet, desc.width, desc.height, desc.frameCount);
-			this.play();
+			if( startPlaying )	this.play();
+			else 				this.draw(this.playOffset);
 			this.dispatchEvent(new Event('complete'));
 		} else { 
 			//image needs async onload callback
 			this.sheet.addEventListener("load", function(desc) {
 				this.setSheet(this.sheet, desc.width, desc.height, desc.frameCount);
-				this.play();
+				if( startPlaying )	this.play();
+				else 				this.draw(this.playOffset);
 				this.dispatchEvent(new Event('load'));
 				this.dispatchEvent(new Event('complete'));
 			}.bind(this, desc));
@@ -98,35 +135,57 @@ class Sprite extends HTMLElement {
 		}
 	}
 
+	//interpret painted frame from play frame and looping
+	computeDrawFrame(playFrame) {
+		var paintFrame;
+		if( this.loop == "bounce" || this.loop == "bounceonce" ) {
+			//bounce
+			playFrame %= this.playRange * 2;
+			if( playFrame < this.playRange )	paintFrame = playFrame;
+			else 								paintFrame = this.playRange - (playFrame - this.playRange) - 1;
+		} else { 
+			//forever & once
+			paintFrame = playFrame % this.playRange;
+		}
+		return paintFrame + this.playOffset;
+	}
+
+	//constrain playFrame to playRange*2, skip any duplicate frames during bounces
+	boundPlayFrame(playFrame) {
+		playFrame = fancyMod(playFrame, this.playRange * 2); 
+		if( this.loop == "bounce" || this.loop == "bounceonce" ) {
+			// skip far bounce frame
+			if(playFrame == this.playRange) { 
+				playFrame++;
+			}
+			// skip 0 bounce frame if looping bounce
+			if(this.loop == "bounce" && playFrame == this.playRange*2-1) { 
+				playFrame++;
+			}
+			playFrame %= (this.playRange * 2);
+		}
+		return playFrame;
+	}
+
 	step(timestamp) {
 		var repaint = false;
-		if( !this.playTime ) {
+		if( !this._playStamp ) {
 			if(this.loop == "once") this.playFrame = 0;
-			this.playTime = timestamp;
+			this._playStamp = timestamp;
 			repaint = true;
 		}
 
-		if( timestamp - this.playTime > this._frameTime ) {
-			this.playTime = timestamp;
+		if( timestamp - this._playStamp > this._frameTime ) {
+			this._playStamp = timestamp;
 			this.playFrame++;
-			this.playFrame %= (this.playRange * 2); //2x range for bounce looping
+			this.playFrame = this.boundPlayFrame(this.playFrame);
 			repaint = true;
 		}
 
 		if( repaint ) {
-			var paintFrame;
-			
-			//interpret painted frame from play frame and looping
-			if( this.loop == "bounce" || this.loop == "bounceonce" ) {
-				//bounce
-				if( this.playFrame < this.playRange )	paintFrame = this.playFrame;
-				else 									paintFrame = this.playRange - (this.playFrame - this.playRange) - 1;
-			} else { 
-				//forever & once
-				paintFrame = this.playFrame % this.playRange;
-			}
-			paintFrame += this.playOffset;
+			var paintFrame = this.computeDrawFrame( this.playFrame );
 			this.draw(paintFrame);
+			console.debug("drawFrame " + paintFrame);
 
 			//TODO: not sure if dispatching events at 60 hz is wise or if a single callback would be cleaner
 			var ev = new Event('frame');
@@ -149,18 +208,26 @@ class Sprite extends HTMLElement {
 				}
 			}
 		}
-		this.requestID = window.requestAnimationFrame(this.step.bind(this));
+		this._requestID = window.requestAnimationFrame(this.step.bind(this));
 	}
 
 	draw(frame, context) {
 		context = context || this.context;
-		frame = frame % this.frameCount;
+		frame = fancyMod(frame, this.frameCount);
 		var x = frame % this.colCount;
 		var y = (frame - x) / this.colCount;
 		x *= this.spriteWidth;
 		y *= this.spriteHeight;
-		context.clearRect(this.canvasX, this.canvasY, this.spriteWidth, this.canvas.height);
-		context.drawImage(this.sheet, x, y, this.spriteWidth, this.spriteHeight, this.canvasX, this.canvasY, this.spriteWidth, this.canvas.height);
+		context.clearRect(
+			this.canvasX, this.canvasY, 
+			this.spriteWidth, this.canvas.height
+		);
+		context.drawImage(
+			this.sheet,
+			x, y, 
+			this.spriteWidth, this.spriteHeight,
+			this.canvasX, this.canvasY,
+			this.spriteWidth, this.canvas.height);
 		this.drawFrame = frame;
 	}
 
@@ -171,27 +238,38 @@ class Sprite extends HTMLElement {
 	}
 
 	pause() {
-		if( this.requestID ) {
-			window.cancelAnimationFrame(this.requestID);
-			this.requestID = null;
-			this.playTime = null;
+		if( this._requestID ) {
+			window.cancelAnimationFrame(this._requestID);
+			this._requestID = null;
+			this._playStamp = null;
 		}
 	}
 
-	rewind() {
-		this.playTime = null;
+	firstFrame() {
 		this.playFrame = 0;
 		this.draw(this.playOffset);
 	}
 
+	previousFrame() {
+		this.playFrame = boundPlayFrame(this.playFrame-1);
+		var df = this.computeDrawFrame(this.playFrame);
+		this.draw(df);
+	}
+
+	nextFrame() {
+		this.playFrame = boundPlayFrame(this.playFrame+1);
+		var df = this.computeDrawFrame(this.playFrame);
+		this.draw(df);
+	}
+
 	lastFrame() {
-		this.playTime = null;
-		this.playFrame = this.playOffset + this.playRange - 1;;
-		this.draw(this.playFrame);
+		//TODO: should bounce end up at frame 0 or frame range-1?
+		this.playFrame = this.playRange - 1;
+		this.draw(this.playOffset + this.playFrame);
 	}
 
 	isPlaying() {
-		return this.requestID !== null && this.requestID !== undefined;
+		return this._requestID !== null && this._requestID !== undefined;
 	}
 
 	connectedCallback() {
@@ -207,27 +285,15 @@ class Sprite extends HTMLElement {
 			height: Number.parseInt(this.getAttribute("height")),
 			frameCount: Number.parseInt(this.getAttribute("frame-count")),
 			frameRate: Number.parseFloat(this.getAttribute("frame-rate")),
-			loop: this.getAttribute("loop") //once, forever, bounce
+			
+			loop: this.getAttribute("loop"), //once, forever, bounce, default: forever
+			playOffset: this.getAttribute("play-offset"),
+			playRange: this.getAttribute("play-range"),
+			playing: this.getAttribute("playing"), //default: true
 		};
 
-		//Handle both <sprite-sheet> and <img> elements
-		if(desc.canvas && desc.canvas.canvas) 	desc.canvas = desc.canvas.canvas;
-
-		//error checking
-		var invalidErr = "Invalid <sprite-sheet> property: ";
-		if( !desc.url && !desc.image ) console.error(invalidErr + "src [" + desc.url + "] must be a valid image url.");
-		if( desc.width <= 0 || 		!Number.isInteger(desc.width) ) console.error(invalidErr + "width [" + desc.width + "] must be valid integer.");
-		if( desc.height <= 0 || 	!Number.isInteger(desc.height) ) console.error(invalidErr + "height [" + desc.height + "] must be valid integer.");
-		if( desc.frameCount <= 0 || !Number.isInteger(desc.frameCount) ) console.error(invalidErr + "frame-count [" + desc.frameCount + "] must be a valid integer.");
-		if( desc.frameRate <= 0 ||	!Number.isFinite(desc.frameRate) ) console.error(invalidErr + "frame-rate [" + desc.frameRate + "] must be a valid float.");
-		if( desc.loop ) {
-			desc.loop = desc.loop.toLowerCase();
-			if( desc.loop != "once" &&
-				desc.loop != "forever" &&
-				desc.loop != "bounce" &&
-				desc.loop != "bounceonce" )
-				console.error(invalidErr + "loop  [" + desc.loop + "] must be set to 'once', 'forever', 'bounce' or 'bounceonce'.");
-		}
+		//Handle both <sprite-sheet> and <canvas> elements
+		if(desc.canvas && desc.canvas.canvas) desc.canvas = desc.canvas.canvas;
 		
 		this.init(desc);
 		this.addEventListener("load", console.log("Loaded!"));
@@ -252,9 +318,9 @@ class Sprite extends HTMLElement {
 			this.dispatchEvent("clickpixel", ev);
 
 			if(px[3] > 0) {
-				this.rewind();
+				this.firstFrame();
 				this.play();
-				console.debug("play!");
+				console.debug("pixel click play!");
 			}
 			console.debug(px);
 		}.bind(this));
@@ -270,10 +336,11 @@ class Sprite extends HTMLElement {
 					this.canvas.style.boxShadow = "inset 0px 0px 0px 1px #d00";
 				} else {
 	 				this.play();
+	 				console.debug("sprite click play!");
 	 				this.canvas.style.boxShadow = "inset 0px 0px 0px 1px #0f5";
 	 			}
-			} else if( e.button == 2) {
-				this.rewind();
+			} else if(e.button == 2) {
+				this.firstFrame();
 			}
 		}.bind(this));
 	}
