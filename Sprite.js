@@ -2,13 +2,14 @@ if(!HTMLElement) var HTMLElement = {};
 
 
 fancyMod=function(a,b) { return (a%b+b)%b; } //modulo that handles negative numbers properly, e.g. -1 % 4 = 3
+fancyDefined=function(v) { return v !== undefined && v !== null; }
 fancyBool=function(str) { 
 	switch(str.toLowerCase()) {
 		case "true": case "yes": case "1": return true;
 		default: return false;
-	} 
+	};
 }
-fancyDefined=function(v) { return v !== undefined && v !== null; }
+
 
 class Sprite extends HTMLElement {
 	get frameCount()  { return this._frameCount }
@@ -185,8 +186,7 @@ class Sprite extends HTMLElement {
 		if( repaint ) {
 			var paintFrame = this.computeDrawFrame( this.playTick );
 			this.draw(paintFrame);
-			console.debug("drawFrame " + paintFrame);
-
+			
 			//TODO: not sure if dispatching events at 60 hz is wise or if a single callback would be cleaner
 			var ev = new Event('frame');
 			ev.frame = paintFrame;
