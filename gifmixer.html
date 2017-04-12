@@ -14,7 +14,7 @@ button:hover {
 }
 </style>
 <body bgcolor='#222' text="#ddd">
-
+<div id="fauxsprite" style="border:1px solid red"></div>
 <!--
 <span style="position:relative; width:120px; height:140">
 	<sprite-sheet src="layer0.png" width="120" height="140" frame-count="10" frame-rate="10" loop="forever" style="position:absolute; width:120; height:140;"></sprite-sheet>
@@ -49,8 +49,22 @@ button:hover {
 	<button style="width:24; height:24;" onclick="next(event);"> >> </button>
 	<button style="width:24; height:24;" onclick="end(event);"> >| </button>
 </div>
+
 <script>
-	var sprite = document.getElementById("sprite");
+	var sprite = new Sprite({
+		src: "jebsheet.png",
+		parentElement: document.getElementById("fauxsprite"),
+		width: 256,
+		height: 256,
+		frameCount: 41,
+		frameRate: 20,
+		playing: false,
+		loop:"bounce",
+		onload: 	function() { console.debug("desc.onload"); }.bind(sprite),
+		oncomplete: function() { console.debug("desc.oncomplete"); }.bind(sprite)
+	});
+
+	//var sprite = document.getElementById("sprite");
 	home = function(ev) { 
 		this.firstFrame(); 
 	}.bind(sprite);
@@ -78,10 +92,9 @@ button:hover {
 
 	stop = function(ev) {
 		this.pause();
-		this.rewind();
+		this.firstFrame();
 		updatePlayPause(this);
 	}.bind(sprite, play);
-
 
 	updatePlayPause = function(s) {
 		el = document.getElementById("playbutton");
