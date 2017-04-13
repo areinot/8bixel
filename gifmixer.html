@@ -100,7 +100,11 @@ button:hover {
 		el = document.getElementById("playbutton");
 		el.innerHTML = s.isPlaying() ? "||" : ">";
 	}
-	updatePlayPause(sprite);
+
+	sprite.oncomplete = function() {
+		this.oncomplete();
+		updatePlayPause(this);
+	}.bind(sprite);
 </script>
 
 </body>

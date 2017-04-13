@@ -99,8 +99,6 @@ class Sprite { //@@@ extends HTMLElement {
 			canvas.height = canvas.style.height = desc.height;
 			this.element.appendChild(canvas);
 			this.canvas = canvas;
-			//@@@
-			this.canvas.style.border="1px solid cyan";
 		}
 
 		if( desc.image ) {
