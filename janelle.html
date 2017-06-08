@@ -1,0 +1,42 @@
+<html>
+<meta content="text/html;charset=utf-8" http-equiv="Content-Type">
+<meta content="utf-8" http-equiv="encoding">
+<head>
+	<title>Hexel Lady</title>
+	<script src="Sprite.js"></script> 
+</head>
+<style>
+button {
+	font-size: 12;
+	font-weight: bold;
+}
+button:hover {
+	border: 1px solid white;
+}
+</style>
+<body bgcolor='#111' text="#ddd">
+
+<div>
+	<sprite-sheet
+		src="janellesheet.png"
+		width="740"
+		height="981"
+		frame-count="48"
+		frame-rate="32"
+		loop="forever">
+	</sprite-sheet>	
+</div>
+
+<script>
+	var sprites = [];
+	Array.prototype.filter.call( document.getElementsByTagName("sprite-sheet"), function(el) {
+		this.push(new Sprite(Sprite.createDescFromProperties(el)));
+	}.bind(sprites));
+
+	Array.prototype.filter.call( document.getElementsByClassName("sprite-sheet"), function(el) {
+		this.push(new Sprite(Sprite.createDescFromProperties(el)));
+	}.bind(sprites));
+</script>
+
+</body>
+</html>

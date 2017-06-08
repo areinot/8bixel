@@ -1,4 +1,6 @@
 <html>
+<meta content="text/html;charset=utf-8" http-equiv="Content-Type">
+<meta content="utf-8" http-equiv="encoding">
 <head>
 	<title>gif mixer</title>
 	<script src="Sprite.js"></script> 
@@ -13,33 +15,54 @@ button:hover {
 	border: 1px solid white;
 }
 </style>
-<body bgcolor='#222' text="#ddd">
-<div id="fauxsprite" style="border:1px solid red"></div>
-<!--
-<span style="position:relative; width:120px; height:140">
-	<sprite-sheet src="layer0.png" width="120" height="140" frame-count="10" frame-rate="10" loop="forever" style="position:absolute; width:120; height:140;"></sprite-sheet>
-	<sprite-sheet src="layer1.png" width="120" height="140" frame-count="10" frame-rate="10" loop="bounceonce" style="position:absolute; width:120; height:140;" element-click="true"></sprite-sheet>
-</span>
-<span>
-	<span style="width:128; height:148"></span>
-	<sprite-sheet src="sunsheet.png" width="194" height="154" frame-count="120" frame-rate="20" loop="forever" onclick="console.log('hey.')"></sprite-sheet>
-	<script>
-	//	var sun = document.getElementById("sunshine");
-	//	sun.addEventListener("click", function(ev) {console.log("here comes the sun, doo doo doodoo.")});
-	</script>
-</span>
--->
-<sprite-sheet 
-	id="sprite"
-	src="jebsheet.png" 
-	width="256" 
-	height="256" 
-	frame-count="41" 
-	frame-rate="20" 
-	loop="bounce" 
-	style="width:120; height:140;">
-</sprite-sheet>
-<br>
+<body bgcolor='#666' text="#ddd">
+
+<div style="border:1px solid red; height:140px">
+	<span>
+	<div class="sprite-sheet" src="layer0.png" width="120" height="140" frame-count="10" frame-rate="10" loop="forever" style="position:absolute;"></div>
+	<div class="sprite-sheet" src="layer1.png" width="120" height="140" frame-count="10" frame-rate="10" loop="bounceonce" style="position:absolute;" element-click="true"></div>
+	</span>
+</div>
+
+<div style="border:1px solid cyan;">
+	<sprite-sheet
+		src="sunsheet.png"
+		width="194"
+		height="154"
+		frame-count="120"
+		frame-rate="20"
+		loop="forever">
+	</sprite-sheet>
+	<sprite-sheet
+		src="jebsheet.png" 
+		width="256" 
+		height="256" 
+		frame-count="41" 
+		frame-rate="20" 
+		element-click="true"
+		loop="bounceonce">
+
+	</sprite-sheet>
+
+	<sprite-sheet
+		src="premult.png"
+		width="681" 
+		height="610" 
+		frame-count="1" 
+		frame-rate="1" 
+		loop="once"
+		style="mix-blend-mode: screen;"
+		>
+	<sprite-sheet
+		src="premult_house.png"
+		width="681" 
+		height="610" 
+		frame-count="1" 
+		frame-rate="1" 
+		loop="once"
+		>
+	</sprite-sheet>
+</div>
 
 <div style="width:170; height:24; border: 1px solid black;">
 	<button style="width:24; height:24;" onclick="home(event);"> |< </button>
@@ -51,6 +74,16 @@ button:hover {
 </div>
 
 <script>
+	var sprites = [];
+	Array.prototype.filter.call( document.getElementsByTagName("sprite-sheet"), function(el) {
+		this.push(new Sprite(Sprite.createDescFromProperties(el)));
+	}.bind(sprites));
+
+	Array.prototype.filter.call( document.getElementsByClassName("sprite-sheet"), function(el) {
+		this.push(new Sprite(Sprite.createDescFromProperties(el)));
+	}.bind(sprites));
+	
+	/*
 	var sprite = new Sprite({
 		src: "jebsheet.png",
 		parentElement: document.getElementById("fauxsprite"),
@@ -63,48 +96,53 @@ button:hover {
 		onload: 	function() { console.debug("desc.onload"); }.bind(sprite),
 		oncomplete: function() { console.debug("desc.oncomplete"); }.bind(sprite)
 	});
+	*/
 
-	//var sprite = document.getElementById("sprite");
-	home = function(ev) { 
-		this.firstFrame(); 
-	}.bind(sprite);
+	//add playback controls to the last sprite in the document
+	if(sprites.length) {
+		var sprite = sprites[sprites.length-1];
 
-	end = function(ev) { 
-		this.lastFrame();
-	}.bind(sprite);
+		home = function(ev) { 
+			this.firstFrame(); 
+		}.bind(sprite);
 
-	next = function(ev) { 
-		this.nextFrame(); 
-	}.bind(sprite);
+		end = function(ev) { 
+			this.lastFrame();
+		}.bind(sprite);
 
-	prev = function(ev) { 
-		this.previousFrame();
-	}.bind(sprite);
+		next = function(ev) { 
+			this.nextFrame(); 
+		}.bind(sprite);
 
-	play = function(ev) {
-		if(this.isPlaying()) {
+		prev = function(ev) { 
+			this.previousFrame();
+		}.bind(sprite);
+
+		play = function(ev) {
+			if(this.isPlaying()) {
+				this.pause();
+			} else {
+				this.play(10,20);
+			}
+			updatePlayPause(this);
+		}.bind(sprite);
+
+		stop = function(ev) {
 			this.pause();
-		} else {
-			this.play(10,20);
+			this.firstFrame();
+			updatePlayPause(this);
+		}.bind(sprite, play);
+
+		updatePlayPause = function(s) {
+			el = document.getElementById("playbutton");
+			el.innerHTML = s.isPlaying() ? "||" : ">";
 		}
-		updatePlayPause(this);
-	}.bind(sprite);
 
-	stop = function(ev) {
-		this.pause();
-		this.firstFrame();
-		updatePlayPause(this);
-	}.bind(sprite, play);
-
-	updatePlayPause = function(s) {
-		el = document.getElementById("playbutton");
-		el.innerHTML = s.isPlaying() ? "||" : ">";
+		sprite.oncomplete = function() {
+			this.oncomplete();
+			updatePlayPause(this);
+		}.bind(sprite);
 	}
-
-	sprite.oncomplete = function() {
-		this.oncomplete();
-		updatePlayPause(this);
-	}.bind(sprite);
 </script>
 
 </body>

@@ -99,7 +99,11 @@ class Sprite { //@@@ extends HTMLElement {
 			canvas.height = canvas.style.height = desc.height;
 			this.element.appendChild(canvas);
 			this.canvas = canvas;
+
+			//this.canvas.style.mixBlendMode="darken";
 		}
+
+
 
 		if( desc.image ) {
 			this.sheet = desc.image;
@@ -118,7 +122,7 @@ class Sprite { //@@@ extends HTMLElement {
 		} else { 
 			//image needs async onload callback
 			this.sheet.addEventListener("load", function(desc) {
-				this._setSheet(this.sheet, desc.width, desc.height, desc.frameCount);
+				this._setSheet(this.sheet, desc.width, desc.height, desc.frameCount);				
 				if( startPlaying )	this.play();
 				else 				this.draw(this.playOffset);
 				this.element.dispatchEvent(new Event('load'));
@@ -147,7 +151,7 @@ class Sprite { //@@@ extends HTMLElement {
 			this.spriteWidth, this.canvas.height
 		);
 		context.drawImage(
-			this.sheet,
+			this.bitmap ? this.bitmap : this.sheet,
 			x, y, 
 			this.spriteWidth, this.spriteHeight,
 			this.canvasX, this.canvasY,
@@ -210,6 +214,9 @@ class Sprite { //@@@ extends HTMLElement {
 		this.colCount = Math.floor(this.sheet.width / this.spriteWidth);
 		this.rowCount = Math.floor(this.sheet.height / this.spriteHeight);
 		this.playRange = this.frameCount;
+		this.bitmap = undefined;
+		createImageBitmap(this.sheet, 0, 0, this.sheet.width, this.sheet.height, {premultiplyAlpha:"default"}).then( 
+			function(response) { this.bitmap = response; }.bind(this));
 	}
 
 	//interpret painted frame from play tick and looping
@@ -288,26 +295,25 @@ class Sprite { //@@@ extends HTMLElement {
 		this._requestID = window.requestAnimationFrame(this._step.bind(this));
 	}
 
-	//@@@ only run when we're HTML element
-	connectedCallback() {
+	static createDescFromProperties(element) {
 		var desc = {
-			parentElement: this, //we are our own HTML Element!
-			src: this.getAttribute("src"),
+			parentElement: element, //we are our own HTML Element!
+			src: element.getAttribute("src"),
 			image: null,
 			
-			x: this.getAttribute("canvasX"),
-			y: this.getAttribute("canvasY"),
-			canvas: document.getElementById(this.getAttribute("canvasID")),
+			x: element.getAttribute("canvasX"),
+			y: element.getAttribute("canvasY"),
+			canvas: document.getElementById(element.getAttribute("canvasID")),
 
-			width: Number.parseInt(this.getAttribute("width")),
-			height: Number.parseInt(this.getAttribute("height")),
-			frameCount: Number.parseInt(this.getAttribute("frame-count")),
-			frameRate: Number.parseFloat(this.getAttribute("frame-rate")),
+			width: Number.parseInt(element.getAttribute("width")),
+			height: Number.parseInt(element.getAttribute("height")),
+			frameCount: Number.parseInt(element.getAttribute("frame-count")),
+			frameRate: Number.parseFloat(element.getAttribute("frame-rate")),
 			
-			loop: this.getAttribute("loop"), //once, forever, bounce, default: forever
-			playOffset: this.getAttribute("play-offset"),
-			playRange: this.getAttribute("play-range"),
-			playing: this.getAttribute("playing"), //default: true
+			loop: element.getAttribute("loop"), //once, forever, bounce, default: forever
+			playOffset: element.getAttribute("play-offset"),
+			playRange: element.getAttribute("play-range"),
+			playing: element.getAttribute("playing"), //default: true
 
 			//callbacks
 			oncomplete: null,	//function() {}
@@ -317,10 +323,16 @@ class Sprite { //@@@ extends HTMLElement {
 
 		//convert to actual bool
 		desc.playing = fancyDefined(desc.playing) ? fancyBool(desc.playing) : null;
-
+		
 		//Handle both <sprite-sheet> and <canvas> elements
 		if(desc.canvas && desc.canvas.canvas) desc.canvas = desc.canvas.canvas;
 
+		return desc;
+	}
+
+	//@@@ only run when we're HTML element
+	connectedCallback() {		
+		var desc = Sprite.createDescFromProperties(this);
 		this.init(desc);
 		this.addEventListener("load", console.log("Loaded!"));
 		this.addEventListener("complete", console.log("Completed!"));
@@ -375,13 +387,13 @@ class Sprite { //@@@ extends HTMLElement {
 }
 /*
 //@@@ 
-if(customElements !== undefined || customElementsRegistry !== undefined) {
+if(fancyDefined(customElements)) {
 	class SpriteSheetTag extends Sprite {
 		constructor() {
 			super();
 		}
 	}
-	var CE = customElements || customElementsRegistry;
+	var CE = customElements || customElementRegistry;
 	CE.define('sprite-sheet', SpriteSheetTag);
 }
 */
