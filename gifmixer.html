@@ -15,12 +15,19 @@ button:hover {
 	border: 1px solid white;
 }
 </style>
+
 <body bgcolor='#666' text="#ddd">
 
+<?php
+	echo "PHP is running!";
+?>
+
+
 <div style="border:1px solid red; height:140px">
+<!-- Layers -->
 	<span>
-	<div class="sprite-sheet" src="layer0.png" width="120" height="140" frame-count="10" frame-rate="10" loop="forever" style="position:absolute;"></div>
-	<div class="sprite-sheet" src="layer1.png" width="120" height="140" frame-count="10" frame-rate="10" loop="bounceonce" style="position:absolute;" element-click="true"></div>
+	<sprite-sheet src="layer0.png" width="120" height="140" frame-count="10" frame-rate="10" loop="forever" style="position:absolute;"></sprite-sheet>
+	<sprite-sheet src="layer1.png" width="120" height="140" frame-count="10" frame-rate="10" loop="bounceonce" style="position:absolute;" element-click="true"></sprite-sheet>
 	</span>
 </div>
 
@@ -41,26 +48,6 @@ button:hover {
 		frame-rate="20" 
 		element-click="true"
 		loop="bounceonce">
-
-	</sprite-sheet>
-
-	<sprite-sheet
-		src="premult.png"
-		width="681" 
-		height="610" 
-		frame-count="1" 
-		frame-rate="1" 
-		loop="once"
-		style="mix-blend-mode: screen;"
-		>
-	<sprite-sheet
-		src="premult_house.png"
-		width="681" 
-		height="610" 
-		frame-count="1" 
-		frame-rate="1" 
-		loop="once"
-		>
 	</sprite-sheet>
 </div>
 
