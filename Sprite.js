@@ -322,6 +322,7 @@ class Sprite { //@@@ extends HTMLElement {
 			playOffset: element.getAttribute("play-offset"),
 			playRange: element.getAttribute("play-range"),
 			playing: element.getAttribute("playing"), //default: true
+			loopDelay: element.getAttribute("loop-delay"),
 
 			//callbacks
 			oncomplete: null,	//function() {}
