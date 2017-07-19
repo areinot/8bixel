@@ -220,8 +220,11 @@ class Sprite { //@@@ extends HTMLElement {
 		this.rowCount = Math.floor(this.sheet.height / this.spriteHeight);
 		this.playRange = this.frameCount;
 		this.bitmap = undefined;
-		createImageBitmap(this.sheet, 0, 0, this.sheet.width, this.sheet.height, {premultiplyAlpha:"default"}).then( 
-			function(response) { this.bitmap = response; }.bind(this));
+		
+		//TODO: createImageBitmap is not supported in Safari or Edge. 
+		/*
+		createImageBitmap(this.sheet, 0, 0, this.sheet.width, this.sheet.height, {premultiplyAlpha:"default"}).then( function(response) { this.bitmap = response; }.bind(this));
+		*/
 	}
 
 	//interpret painted frame from play tick and looping
