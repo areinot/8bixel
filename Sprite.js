@@ -7,6 +7,7 @@ fancyBool=function(str) {
 	};
 }
 
+
 class Sprite { //@@@ extends HTMLElement {
 	constructor(desc) {
 		//@@@ super(); 
@@ -385,6 +386,19 @@ class Sprite { //@@@ extends HTMLElement {
 		}.bind(this));
 	}
 }
+
+Sprite.initDOM = function() {
+	var sprites = [];
+	Array.prototype.filter.call( document.getElementsByTagName("sprite-sheet"), function(el) {
+		this.push(new Sprite(Sprite.createDescFromProperties(el)));
+	}.bind(sprites));
+
+	Array.prototype.filter.call( document.getElementsByClassName("sprite-sheet"), function(el) {
+		this.push(new Sprite(Sprite.createDescFromProperties(el)));
+	}.bind(sprites));
+}
+
+
 /*
 //@@@ 
 if(fancyDefined(customElements)) {
