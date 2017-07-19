@@ -18,10 +18,12 @@ button:hover {
 
 <body bgcolor='#666' text="#ddd">
 
-<?php
-	echo "PHP is running!";
-?>
-
+<!-- PHP stuff
+<script>	
+  	window.location.href = "gifserver.php?name=" + "Andres";
+	//console.log("Name from server: " + $get('gifserver.php', NAME));
+</script>
+-->
 
 <div style="border:1px solid red; height:140px">
 <!-- Layers -->
@@ -60,16 +62,21 @@ button:hover {
 	<button style="width:24; height:24;" onclick="end(event);"> >| </button>
 </div>
 
-<script>
-	var sprites = [];
-	Array.prototype.filter.call( document.getElementsByTagName("sprite-sheet"), function(el) {
-		this.push(new Sprite(Sprite.createDescFromProperties(el)));
-	}.bind(sprites));
+<sprite-sheet
+	src="https://areinot.github.io/8bixel/lighthouse.png"
+	width="640" 
+	height="360" 
+	frame-count="84" 
+	frame-rate="24"
+	loop="bounce"
+	loop-delay="3000"
+	bounce-delay="5000"
+>
+</sprite-sheet>
 
-	Array.prototype.filter.call( document.getElementsByClassName("sprite-sheet"), function(el) {
-		this.push(new Sprite(Sprite.createDescFromProperties(el)));
-	}.bind(sprites));
-	
+<script>
+	var sprites = Sprite.initDOM();
+
 	/*
 	var sprite = new Sprite({
 		src: "jebsheet.png",

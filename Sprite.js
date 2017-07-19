@@ -67,7 +67,9 @@ class Sprite { //@@@ extends HTMLElement {
 		this.frameCount = desc.frameCount;	//Number of frames in the sprite sheet
 		this.frameRate = desc.frameRate;	//Frames per second
 		this.loop = desc.loop ? desc.loop : "forever"; //How time is converted into drawn frames
-		this.loopDelay = 0;
+		
+		this.loopDelay = desc.loopDelay !== undefined ? desc.loopDelay : 0;
+		this.bounceDelay = desc.bounceDelay !== undefined ? desc.bounceDelay : 0;
 
 		//sprite offset when drawing on a larger canvas
 		this.canvasX = fancyDefined(desc.x) ? desc.x : 0;
@@ -88,7 +90,7 @@ class Sprite { //@@@ extends HTMLElement {
 		this.playOffset = Math.min(this.playOffset, this.frameCount - 1);
 		this.playRange = Math.min(this.playOffset + this.playRange, this.frameCount - 1);
 		this.playRange = Math.max(1, this.playRange - this.playOffset);
-		
+
 		//DOM
 		this.element = desc.parentElement; //parent element if set through js or this if deriving from HTMLElement
 
@@ -238,18 +240,28 @@ class Sprite { //@@@ extends HTMLElement {
 	}
 
 	//constrain playTick to playRange*2, skip any duplicate frames during bounces
-	_boundTick(tick) {
-		tick = fancyMod(tick, this.playRange * 2); 
+	_boundTick(tick, flags) {
+		flags.bounced = false;
+		flags.looped = false;
+		
+		var unboundTick = tick;
+
+		tick = fancyMod(tick, this.playRange * 2);
 		if( this.loop == "bounce" || this.loop == "bounceonce" ) {
 			// skip far bounce frame
 			if(tick == this.playRange) { 
+				flags.bounced = true;
 				tick++;
 			}
 			// skip 0 bounce frame if looping bounce
 			if(this.loop == "bounce" && tick == this.playRange*2-1) { 
+				flags.looped = true;
 				tick++;
 			}
 			tick %= this.playRange * 2;
+		} 
+		else {			
+			flags.looped = unboundTick != 0 && fancyMod(unboundTick , this.playRange) == (this.playRange - 1);
 		}
 		return tick;
 	}
@@ -263,15 +275,20 @@ class Sprite { //@@@ extends HTMLElement {
 			repaint = true;
 		}
 
-		if( timestamp - this._playStamp > this._frameTime + this._playDelay ) {
+		var loopFlags = {
+			bounced:false, 
+			looped:false
+		};
+
+		if( timestamp - this._playDelay - this._playStamp > this._frameTime ) {
 			this._playStamp = timestamp;
 			this.playTick++;
-			this.playTick = this._boundTick(this.playTick);
+			this.playTick = this._boundTick(this.playTick, loopFlags);
 			repaint = true;
 		}
 
 		if( repaint ) {
-			var paintFrame = this._frameFromTick( this.playTick );
+			var paintFrame = this._frameFromTick(this.playTick,);
 			this.draw(paintFrame);
 				
 			//TODO: not sure if dispatching events at 60 hz is wise or if a single callback would be cleaner
@@ -279,7 +296,12 @@ class Sprite { //@@@ extends HTMLElement {
 			ev.frame = paintFrame;
 			this.element.dispatchEvent(ev);	
 			if(this.onframe) this.onframe(paintFrame);
-	
+
+			// introduce delays during various looping and bouncing stages
+			if( loopFlags.bounced )		this._playDelay = this.bounceDelay;
+			else if( loopFlags.looped ) this._playDelay = this.loopDelay;
+			else this._playDelay = 0;
+
 			//pause play-once loop types
 			if( this.loop == "once" ) {
 				if(this.playTick == this.playRange - 1) {
@@ -294,10 +316,6 @@ class Sprite { //@@@ extends HTMLElement {
 					this.playTick = 0;
 					return;
 				}
-			}
-			else {
-				if( this.playTick == this.playRange - 1) this._playDelay = this.loopDelay;
-				else 									 this._playDelay = 0;
 			}
 		} 
 		this._requestID = window.requestAnimationFrame(this._step.bind(this));
@@ -323,6 +341,7 @@ class Sprite { //@@@ extends HTMLElement {
 			playRange: element.getAttribute("play-range"),
 			playing: element.getAttribute("playing"), //default: true
 			loopDelay: element.getAttribute("loop-delay"),
+			bounceDelay : element.getAttribute("bounce-delay"),
 
 			//callbacks
 			oncomplete: null,	//function() {}
@@ -404,6 +423,8 @@ Sprite.initDOM = function() {
 	Array.prototype.filter.call( document.getElementsByClassName("sprite-sheet"), function(el) {
 		this.push(new Sprite(Sprite.createDescFromProperties(el)));
 	}.bind(sprites));
+
+	return sprites;
 }
 
 
