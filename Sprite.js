@@ -67,13 +67,14 @@ class Sprite { //@@@ extends HTMLElement {
 		this.frameCount = desc.frameCount;	//Number of frames in the sprite sheet
 		this.frameRate = desc.frameRate;	//Frames per second
 		this.loop = desc.loop ? desc.loop : "forever"; //How time is converted into drawn frames
+		this.loopDelay = 0;
 
 		//sprite offset when drawing on a larger canvas
 		this.canvasX = fancyDefined(desc.x) ? desc.x : 0;
 		this.canvasY = fancyDefined(desc.y) ? desc.y : 0;
 
 		this.drawFrame = 0;		//Last drawn sprite sheet frame [0-framecount). This is the frame currently displayed on canvas.
-		this.playTick = 0; 	//Iterator for keeping track of the play loop, [0-playRange * 2)
+		this.playTick = 0; 		//Iterator for keeping track of the play loop, [0-playRange * 2)
 								//Note: to implement bounce looping, playTick goes through 2x playRange frames before resetting to 0
 		
 		this.playOffset = fancyDefined(desc.playOffset) ? desc.playOffset : 0;	//Sprite sheet frame the play loop starts on
@@ -82,6 +83,7 @@ class Sprite { //@@@ extends HTMLElement {
 		var startPlaying = fancyDefined(desc.playing) ? desc.playing : true;
 		this._playStamp = null; //private, paused if null
 		this._requestID = null;
+		this._playDelay = 0; //extra time to hang on this frame
 
 		this.playOffset = Math.min(this.playOffset, this.frameCount - 1);
 		this.playRange = Math.min(this.playOffset + this.playRange, this.frameCount - 1);
@@ -254,13 +256,14 @@ class Sprite { //@@@ extends HTMLElement {
 
 	_step(timestamp) {
 		var repaint = false;
+
 		if( !this._playStamp ) {
 			if(this.loop == "once") this.playTick = 0;
 			this._playStamp = timestamp;
 			repaint = true;
 		}
 
-		if( timestamp - this._playStamp > this._frameTime ) {
+		if( timestamp - this._playStamp > this._frameTime + this._playDelay ) {
 			this._playStamp = timestamp;
 			this.playTick++;
 			this.playTick = this._boundTick(this.playTick);
@@ -276,7 +279,7 @@ class Sprite { //@@@ extends HTMLElement {
 			ev.frame = paintFrame;
 			this.element.dispatchEvent(ev);	
 			if(this.onframe) this.onframe(paintFrame);
-
+	
 			//pause play-once loop types
 			if( this.loop == "once" ) {
 				if(this.playTick == this.playRange - 1) {
@@ -292,7 +295,11 @@ class Sprite { //@@@ extends HTMLElement {
 					return;
 				}
 			}
-		}
+			else {
+				if( this.playTick == this.playRange - 1) this._playDelay = this.loopDelay;
+				else 									 this._playDelay = 0;
+			}
+		} 
 		this._requestID = window.requestAnimationFrame(this._step.bind(this));
 	}
 
