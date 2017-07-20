@@ -119,7 +119,7 @@ class Sprite { //@@@ extends HTMLElement {
 		}
 
 		//Zoom Frame		
-		this._pixelZoom = { x:0, y:0, scale:1, fancyZoom:true };
+		this._pixelZoom = { x:0, y:0, scale:1, CSSZoom: desc.useCSSZoom };
 		
 		if( fancyDefined(desc.mouseOverZoom) && desc.mouseOverZoom > 1 ) {
 			 this.addMouseOverZoom( desc.mouseOverZoom );
@@ -164,7 +164,7 @@ class Sprite { //@@@ extends HTMLElement {
 		this._pixelZoom.x = x;
 		this._pixelZoom.y = y;
 		this._pixelZoom.scale = scale;
-		if( this._pixelZoom.fancyZoom ) {
+		if( this._pixelZoom.CSSZoom ) {
 			this.canvas.style.width = this.canvas.width * scale;
 			this.canvas.style.height = this.canvas.height * scale;		
 		}
@@ -174,7 +174,7 @@ class Sprite { //@@@ extends HTMLElement {
 		this._pixelZoom.x = 
 		this._pixelZoom.y = 0;
 		this._pixelZoom.scale = 1;
-		if( this._pixelZoom.fancyZoom ) {
+		if( this._pixelZoom.CSSZoom ) {
 			this.canvas.style.width = this.canvas.width;
 			this.canvas.style.height = this.canvas.height;		
 		}
@@ -192,17 +192,12 @@ class Sprite { //@@@ extends HTMLElement {
 		x *= this.spriteWidth;
 		y *= this.spriteHeight;
 
-		if( this._pixelZoom.fancyZoom ) {
-			this.canvas.style.width = this.canvas.width * this._pixelZoom.scale;
-			this.canvas.style.height = this.canvas.height * this._pixelZoom.scale;		
-		}
-
 		context.clearRect(
 			this.canvasX, this.canvasY, 
 			this.spriteWidth, this.canvas.height
 		);
 
-		if(!this._pixelZoom.fancyZoom) {
+		if(!this._pixelZoom.CSSZoom) {
 			context.scale( this._pixelZoom.scale, this._pixelZoom.scale );
 		}
 		context.translate(-this._pixelZoom.x, -this._pixelZoom.y);
@@ -404,10 +399,12 @@ class Sprite { //@@@ extends HTMLElement {
 			onframe: null,		//function(frame) {}
 
 			mouseOverZoom : element.getAttribute("mouse-over-zoom"),
+			useCSSZoom : element.getAttribute("use-css-zoom"),
 		};
 
 		//convert to actual bool
 		desc.playing = fancyDefined(desc.playing) ? fancyBool(desc.playing) : null;
+		desc.useCSSZoom = fancyDefined(desc.useCSSZoom) ? fancyBool(desc.useCSSZoom) : false;
 		
 		//Handle both <sprite-sheet> and <canvas> elements
 		if(desc.canvas && desc.canvas.canvas) desc.canvas = desc.canvas.canvas;
