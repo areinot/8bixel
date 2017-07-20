@@ -100,8 +100,7 @@ class Sprite { //@@@ extends HTMLElement {
 		} else {			
 			var canvas = document.createElement("canvas");
 			canvas.style = {};
-			canvas.style.imageRendering = "pixelated"; //css3
-			canvas.style.position = "absolute";
+			canvas.style.imageRendering = "pixelated"; //css3			
 			canvas.width = canvas.style.width = desc.width;
 			canvas.height = canvas.style.height = desc.height;
 
@@ -165,16 +164,16 @@ class Sprite { //@@@ extends HTMLElement {
 		this._pixelZoom.x = x;
 		this._pixelZoom.y = y;
 		this._pixelZoom.scale = scale;
-		this.canvas.style.width = this.spriteWidth * scale;
-		this.canvas.style.height = this.spriteHeight * scale;
+		this.canvas.style.width = this.canvas.width * scale;
+		this.canvas.style.height = this.canvas.height * scale;
 	}
 
 	resetPixelZoom() {
 		this._pixelZoom.x = 
 		this._pixelZoom.y = 0;
 		this._pixelZoom.scale = 1;
-		this.canvas.style.width = this.spriteWidth;
-		this.canvas.style.height = this.spriteHeight;
+		this.canvas.style.width = this.canvas.width;
+		this.canvas.style.height = this.canvas.height;
 	}
 
 	/// playback
