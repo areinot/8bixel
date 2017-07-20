@@ -103,6 +103,12 @@ class Sprite { //@@@ extends HTMLElement {
 			canvas.style.imageRendering = "pixelated"; //css3			
 			canvas.width = canvas.style.width = desc.width;
 			canvas.height = canvas.style.height = desc.height;
+
+			if(fancyDefined(desc.mouseOverZoom) && desc.mouseOverZoom > 1) {
+				canvas.style.maxWidth = desc.width * desc.mouseOverZoom;
+				canvas.style.maxHeight = desc.height * desc.mouseOverZoom;
+			}
+
 			canvas.style.position="inherit";
 			canvas.style.border="1px solid green";
 
