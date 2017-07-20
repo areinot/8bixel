@@ -101,14 +101,20 @@ class Sprite { //@@@ extends HTMLElement {
 			var canvas = document.createElement("canvas");
 			canvas.style = {};
 			canvas.style.imageRendering = "pixelated"; //css3			
-			canvas.width = canvas.style.width = desc.width;
-			canvas.height = canvas.style.height = desc.height;
+			canvas.width = desc.width;
+			canvas.height = desc.height;
+
+			//TODO: technically this is at odds with css zoom, canvas style is hijacked to make that happen
+			if(this.element && fancyDefined(this.element.style)) {
+				canvas.style.width = fancyDefined(this.element.style.width) ? this.element.style.width : desc.width;
+				canvas.style.height = fancyDefined(this.element.style.height) ? this.element.style.height : desc.height;
+			}
 
 			//clipping div around canvas for the purposes of pixelated zoom
 			var clip = document.createElement("div");
 			clip.style = {};
-			clip.style.width = canvas.width;
-			clip.style.height = canvas.height;
+			clip.style.width = canvas.style.width;
+			clip.style.height = canvas.style.height;
 			clip.style.overflow = "hidden";						
 			clip.appendChild(canvas);
 
