@@ -103,6 +103,7 @@ class Sprite { //@@@ extends HTMLElement {
 			canvas.style.imageRendering = "pixelated"; //css3			
 			canvas.width = canvas.style.width = desc.width;
 			canvas.height = canvas.style.height = desc.height;
+			canvas.style.position="inherit";
 
 			//clipping div around canvas for the purposes of pixelated zoom
 			var clip = document.createElement("div");
@@ -165,7 +166,7 @@ class Sprite { //@@@ extends HTMLElement {
 		this._pixelZoom.y = y;
 		this._pixelZoom.scale = scale;
 		this.canvas.style.width = this.canvas.width * scale;
-		this.canvas.style.height = this.canvas.height * scale;
+		this.canvas.style.height = this.canvas.height * scale;		
 	}
 
 	resetPixelZoom() {
@@ -173,7 +174,7 @@ class Sprite { //@@@ extends HTMLElement {
 		this._pixelZoom.y = 0;
 		this._pixelZoom.scale = 1;
 		this.canvas.style.width = this.canvas.width;
-		this.canvas.style.height = this.canvas.height;
+		this.canvas.style.height = this.canvas.height;		
 	}
 
 	/// playback
@@ -463,8 +464,8 @@ class Sprite { //@@@ extends HTMLElement {
 			var invScale = 1.0/scale;
 			
 			var rect = this.canvas.getBoundingClientRect();			
-			var sw = this.spriteWidth;
-			var sh = this.spriteHeight;
+			var sw = Math.min(this.canvas.width, this.spriteWidth);
+			var sh = Math.min(this.canvas.height, this.spriteHeight);
 			var sx = e.clientX - rect.left;
 			var sy = e.clientY - rect.top;
 
