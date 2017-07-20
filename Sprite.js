@@ -43,6 +43,8 @@ class Sprite { //@@@ extends HTMLElement {
 	}
 	get context() { return this._context; }
 
+	get zoomFrame() { return this._pixelZoom; };
+
 	init(desc) {
 		//VALIDATE
 		var invalidErr = "Invalid <sprite-sheet> property: ";
@@ -92,40 +94,34 @@ class Sprite { //@@@ extends HTMLElement {
 		this.playRange = Math.max(1, this.playRange - this.playOffset);
 
 		//DOM
-		this.element = desc.parentElement; //parent element if set through js or this if deriving from HTMLElement
-
+		this.element = desc.parentElement; //parent element if set through js or this if deriving from HTMLElement		
 		if(desc.canvas) {
-			this.canvas = desc.canvas;
-		} else {
+			this.canvas = desc.canvas;			
+		} else {			
 			var canvas = document.createElement("canvas");
 			canvas.style = {};
 			canvas.style.imageRendering = "pixelated"; //css3			
-
-//TODO:
-/*
-  image-rendering: optimizeSpeed;             // Older versions of FF          
-  image-rendering: -moz-crisp-edges;          // FF 6.0+                       
-  image-rendering: -webkit-optimize-contrast; // Safari                        
-  image-rendering: -o-crisp-edges;            // OS X & Windows Opera (12.02+) 
-  image-rendering: pixelated;                 // Awesome future-browsers       
-  -ms-interpolation-mode: nearest-neighbor;   // IE                            
-*/
-
 			canvas.width = canvas.style.width = desc.width;
 			canvas.height = canvas.style.height = desc.height;
-			this.element.appendChild(canvas);
-			this.canvas = canvas;
 
+			//clipping div around canvas for the purposes of pixelated zoom
+			var clip = document.createElement("div");
+			clip.style = {};
+			clip.style.width = canvas.width;
+			clip.style.height = canvas.height;
+			clip.style.overflow = "hidden";						
+			clip.appendChild(canvas);
+
+			this.element.appendChild(clip);
+			canvas.clipElement = clip;			
+			this.canvas = canvas;
 			//this.canvas.style.mixBlendMode="darken";
 		}
 
-		//Zoom Frame
-		this.zoomFrame = { x:0, y:0, scale:1 };
-		this.zoomFrame.reset = function() {
-			this.x = this.y = 0; this.scale = 1;
-		}.bind(this.zoomFrame);
-
-		if( fancyDefined(desc.mouseOverZoom) && desc.mouseOverZoom > 0 && desc.mouseOverZoom != 1 ) {
+		//Zoom Frame		
+		this._pixelZoom = { x:0, y:0, scale:1 };
+		
+		if( fancyDefined(desc.mouseOverZoom) && desc.mouseOverZoom > 1 ) {
 			 this.addMouseOverZoom( desc.mouseOverZoom );
 		}
 
@@ -161,8 +157,26 @@ class Sprite { //@@@ extends HTMLElement {
 		this.onframe = desc.onframe;
 	}
 
-	/// playback
+	/// zoom
+	setPixelZoom(x,y,scale) {
+		// Zoom is handled through canvas CSS width and height (for proper pixelation),
+		// a clipping div to contain the rendering, and a translation in draw().
+		this._pixelZoom.x = x;
+		this._pixelZoom.y = y;
+		this._pixelZoom.scale = scale;
+		this.canvas.style.width = this.spriteWidth * scale;
+		this.canvas.style.height = this.spriteHeight * scale;
+	}
 
+	resetPixelZoom() {
+		this._pixelZoom.x = 
+		this._pixelZoom.y = 0;
+		this._pixelZoom.scale = 1;
+		this.canvas.style.width = this.spriteWidth;
+		this.canvas.style.height = this.spriteHeight;
+	}
+
+	/// playback
 	draw(frame, context) {
 		context = context || this.context;
 		frame = fancyMod(frame, this.frameCount);
@@ -179,9 +193,7 @@ class Sprite { //@@@ extends HTMLElement {
 			this.spriteWidth, this.canvas.height
 		);
 
-		context.scale(this.zoomFrame.scale, this.zoomFrame.scale);
-		context.translate(-this.zoomFrame.x, -this.zoomFrame.y);
-
+		context.translate(-this._pixelZoom.x, -this._pixelZoom.y);
 		context.drawImage(
 			this.bitmap ? this.bitmap : this.sheet,
 			x, y, 
@@ -189,7 +201,6 @@ class Sprite { //@@@ extends HTMLElement {
 			this.canvasX, this.canvasY,
 			this.spriteWidth, this.canvas.height);
 		this.drawFrame = frame;
-
 		context.setTransform(1, 0, 0, 1, 0, 0);
 	}
 
@@ -469,18 +480,14 @@ class Sprite { //@@@ extends HTMLElement {
 			sx = Math.floor(0.5 + sx);
 			sy = Math.floor(0.5 + sy);
 		
-			this.zoomFrame.x = sx;
-			this.zoomFrame.y = sy;
-
-			this.zoomFrame.scale = scale;
-		
-			this.draw(this.drawFrame);			
+			this.setPixelZoom(sx, sy, scale);			
+			this.draw(this.drawFrame);
 		}.bind(this);
 		this.canvas.addEventListener("mousemove", moveFunc,{passive:true});
 		this.canvas.addEventListener("touchmove", moveFunc,{passive:true});
 
 		this.canvas.addEventListener("mouseleave", function(e) {
-			this.zoomFrame.reset();
+			this.resetPixelZoom();
 			this.draw(this.drawFrame);
 		}.bind(this));
 	}
