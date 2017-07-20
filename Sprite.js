@@ -99,7 +99,18 @@ class Sprite { //@@@ extends HTMLElement {
 		} else {
 			var canvas = document.createElement("canvas");
 			canvas.style = {};
-			canvas.style.imageRendering = "pixelated"; //css3
+			canvas.style.imageRendering = "pixelated"; //css3			
+
+//TODO:
+/*
+  image-rendering: optimizeSpeed;             // Older versions of FF          
+  image-rendering: -moz-crisp-edges;          // FF 6.0+                       
+  image-rendering: -webkit-optimize-contrast; // Safari                        
+  image-rendering: -o-crisp-edges;            // OS X & Windows Opera (12.02+) 
+  image-rendering: pixelated;                 // Awesome future-browsers       
+  -ms-interpolation-mode: nearest-neighbor;   // IE                            
+*/
+
 			canvas.width = canvas.style.width = desc.width;
 			canvas.height = canvas.style.height = desc.height;
 			this.element.appendChild(canvas);
@@ -108,7 +119,13 @@ class Sprite { //@@@ extends HTMLElement {
 			//this.canvas.style.mixBlendMode="darken";
 		}
 
+		//Zoom Frame
+		this.zoomFrame = { x:0, y:0, scale:1 };
+		this.zoomFrame.reset = function() {
+			this.x = this.y = 0; this.scale = 1;
+		}.bind(this.zoomFrame);
 
+		if(desc.mouseOverZoom) this.addMouseOverZoom();
 
 		if( desc.image ) {
 			this.sheet = desc.image;
@@ -149,8 +166,18 @@ class Sprite { //@@@ extends HTMLElement {
 		frame = fancyMod(frame, this.frameCount);
 		var x = frame % this.colCount;
 		var y = (frame - x) / this.colCount;
+		var w = this.spriteWidth;
+		var h = this.spriteHeight;
+
 		x *= this.spriteWidth;
 		y *= this.spriteHeight;
+
+		x += this.zoomFrame.x;
+		y += this.zoomFrame.y;
+		w *= this.zoomFrame.scale;
+		h *= this.zoomFrame.scale;
+
+
 		context.clearRect(
 			this.canvasX, this.canvasY, 
 			this.spriteWidth, this.canvas.height
@@ -158,7 +185,7 @@ class Sprite { //@@@ extends HTMLElement {
 		context.drawImage(
 			this.bitmap ? this.bitmap : this.sheet,
 			x, y, 
-			this.spriteWidth, this.spriteHeight,
+			w, h,
 			this.canvasX, this.canvasY,
 			this.spriteWidth, this.canvas.height);
 		this.drawFrame = frame;
@@ -293,7 +320,7 @@ class Sprite { //@@@ extends HTMLElement {
 		if( repaint ) {
 			var paintFrame = this._frameFromTick(this.playTick,);
 			this.draw(paintFrame);
-				
+
 			//TODO: not sure if dispatching events at 60 hz is wise or if a single callback would be cleaner
 			var ev = new Event('frame');
 			ev.frame = paintFrame;
@@ -350,6 +377,7 @@ class Sprite { //@@@ extends HTMLElement {
 			oncomplete: null,	//function() {}
 			onload: null,		//function() {}
 			onframe: null,		//function(frame) {}
+			mouseOverZoom : element.getAttribute("mouse-over-zoom") != undefined,
 		};
 
 		//convert to actual bool
@@ -365,9 +393,9 @@ class Sprite { //@@@ extends HTMLElement {
 	connectedCallback() {		
 		var desc = Sprite.createDescFromProperties(this);
 		this.init(desc);
-		this.addEventListener("load", console.log("Loaded!"));
-		this.addEventListener("complete", console.log("Completed!"));
-		this.addEventListener("frame", console.log("Drawn!"));
+		//this.addEventListener("load", console.log("Loaded!"));
+		//this.addEventListener("complete", console.log("Completed!"));
+		//this.addEventListener("frame", console.log("Drawn!"));
 		if(this.getAttribute("element-click")) this.addClickPlayback();
 		if(this.getAttribute("pixel-click"))   this.addPixelClickPlayback();
 	}
@@ -413,6 +441,42 @@ class Sprite { //@@@ extends HTMLElement {
 			} else if(e.button == 2) {
 				this.firstFrame();
 			}
+		}.bind(this));
+	}
+
+	addMouseOverZoom() {
+		this.canvas.addEventListener("mousemove", function(e) {
+
+			var scale = 0.5;
+			
+			var rect = this.canvas.getBoundingClientRect();			
+			var sw = this.spriteWidth;
+			var sh = this.spriteHeight;
+			var sx = e.clientX - rect.left;
+			var sy = e.clientY - rect.top;
+
+			sx -= scale * sw * 0.5;
+			sy -= scale * sh * 0.5;
+
+			sx = Math.max(0, sx);
+			sx = Math.min(sx, sw - scale * sw);
+			
+			sy = Math.max(0, sy);
+			sy = Math.min(sy, sh - scale * sh);
+
+			sx = Math.floor(0.5 + sx);
+			sy = Math.floor(0.5 + sy);
+		
+			this.zoomFrame.x = sx;
+			this.zoomFrame.y = sy;
+			this.zoomFrame.scale = scale;
+
+			this.draw(this.drawFrame);
+		}.bind(this));
+
+		this.canvas.addEventListener("mouseleave", function(e) {
+			this.zoomFrame.reset();
+			this.draw(this.drawFrame);
 		}.bind(this));
 	}
 }
