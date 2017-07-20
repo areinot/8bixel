@@ -43,7 +43,7 @@ class Sprite { //@@@ extends HTMLElement {
 	}
 	get context() { return this._context; }
 
-	get zoomFrame() { return this._pixelZoom; };
+	get pixelZoom() { return this._pixelZoom; };
 
 	init(desc) {
 		//VALIDATE
