@@ -445,8 +445,7 @@ class Sprite { //@@@ extends HTMLElement {
 	}
 
 	addMouseOverZoom() {
-		this.canvas.addEventListener("mousemove", function(e) {
-
+		var moveFunc = function(e) {
 			var scale = 0.5;
 			
 			var rect = this.canvas.getBoundingClientRect();			
@@ -472,7 +471,9 @@ class Sprite { //@@@ extends HTMLElement {
 			this.zoomFrame.scale = scale;
 
 			this.draw(this.drawFrame);
-		}.bind(this));
+		}.bind(this);
+		this.canvas.addEventListener("mousemove", moveFunc,{passive:true});
+		this.canvas.addEventListener("touchmove", moveFunc,{passive:true});
 
 		this.canvas.addEventListener("mouseleave", function(e) {
 			this.zoomFrame.reset();
