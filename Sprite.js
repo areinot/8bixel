@@ -110,7 +110,7 @@ class Sprite { //@@@ extends HTMLElement {
 			}
 
 			canvas.style.position="inherit";
-			canvas.style.border="1px solid green";
+			canvas.style.border="4px solid red";
 
 			//clipping div around canvas for the purposes of pixelated zoom
 			var clip = document.createElement("div");
