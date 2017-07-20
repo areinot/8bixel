@@ -104,14 +104,6 @@ class Sprite { //@@@ extends HTMLElement {
 			canvas.width = canvas.style.width = desc.width;
 			canvas.height = canvas.style.height = desc.height;
 
-			if(fancyDefined(desc.mouseOverZoom) && desc.mouseOverZoom > 1) {
-				canvas.style.width = desc.width * desc.mouseOverZoom;
-				canvas.style.height = desc.height * desc.mouseOverZoom;
-			}
-
-			canvas.style.position="inherit";
-			canvas.style.border="4px solid cyan";
-
 			//clipping div around canvas for the purposes of pixelated zoom
 			var clip = document.createElement("div");
 			clip.style = {};
@@ -127,7 +119,7 @@ class Sprite { //@@@ extends HTMLElement {
 		}
 
 		//Zoom Frame		
-		this._pixelZoom = { x:0, y:0, scale:1 };
+		this._pixelZoom = { x:0, y:0, scale:1, fancyZoom:true };
 		
 		if( fancyDefined(desc.mouseOverZoom) && desc.mouseOverZoom > 1 ) {
 			 this.addMouseOverZoom( desc.mouseOverZoom );
@@ -172,16 +164,20 @@ class Sprite { //@@@ extends HTMLElement {
 		this._pixelZoom.x = x;
 		this._pixelZoom.y = y;
 		this._pixelZoom.scale = scale;
-		this.canvas.style.width = this.canvas.width * scale;
-		this.canvas.style.height = this.canvas.height * scale;		
+		if( this._pixelZoom.fancyZoom ) {
+			this.canvas.style.width = this.canvas.width * scale;
+			this.canvas.style.height = this.canvas.height * scale;		
+		}
 	}
 
 	resetPixelZoom() {
 		this._pixelZoom.x = 
 		this._pixelZoom.y = 0;
 		this._pixelZoom.scale = 1;
-		this.canvas.style.width = this.canvas.width;
-		this.canvas.style.height = this.canvas.height;		
+		if( this._pixelZoom.fancyZoom ) {
+			this.canvas.style.width = this.canvas.width;
+			this.canvas.style.height = this.canvas.height;		
+		}
 	}
 
 	/// playback
@@ -196,11 +192,19 @@ class Sprite { //@@@ extends HTMLElement {
 		x *= this.spriteWidth;
 		y *= this.spriteHeight;
 
+		if( this._pixelZoom.fancyZoom ) {
+			this.canvas.style.width = this.canvas.width * this._pixelZoom.scale;
+			this.canvas.style.height = this.canvas.height * this._pixelZoom.scale;		
+		}
+
 		context.clearRect(
 			this.canvasX, this.canvasY, 
 			this.spriteWidth, this.canvas.height
 		);
 
+		if(!this._pixelZoom.fancyZoom) {
+			context.scale( this._pixelZoom.scale, this._pixelZoom.scale );
+		}
 		context.translate(-this._pixelZoom.x, -this._pixelZoom.y);
 		context.drawImage(
 			this.bitmap ? this.bitmap : this.sheet,
