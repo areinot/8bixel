@@ -100,7 +100,8 @@ class Sprite { //@@@ extends HTMLElement {
 		} else {			
 			var canvas = document.createElement("canvas");
 			canvas.style = {};
-			canvas.style.imageRendering = "pixelated"; //css3			
+			canvas.style.imageRendering = "pixelated"; //css3
+			canvas.style.position = "absolute";
 			canvas.width = canvas.style.width = desc.width;
 			canvas.height = canvas.style.height = desc.height;
 
