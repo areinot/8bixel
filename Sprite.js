@@ -125,7 +125,9 @@ class Sprite { //@@@ extends HTMLElement {
 			this.x = this.y = 0; this.scale = 1;
 		}.bind(this.zoomFrame);
 
-		if(desc.mouseOverZoom) this.addMouseOverZoom();
+		if( fancyDefined(desc.mouseOverZoom) && desc.mouseOverZoom > 0 && desc.mouseOverZoom != 1 ) {
+			 this.addMouseOverZoom( desc.mouseOverZoom );
+		}
 
 		if( desc.image ) {
 			this.sheet = desc.image;
@@ -172,16 +174,14 @@ class Sprite { //@@@ extends HTMLElement {
 		x *= this.spriteWidth;
 		y *= this.spriteHeight;
 
-		x += this.zoomFrame.x;
-		y += this.zoomFrame.y;
-		w *= this.zoomFrame.scale;
-		h *= this.zoomFrame.scale;
-
-
 		context.clearRect(
 			this.canvasX, this.canvasY, 
 			this.spriteWidth, this.canvas.height
 		);
+
+		context.scale(this.zoomFrame.scale, this.zoomFrame.scale);
+		context.translate(-this.zoomFrame.x, -this.zoomFrame.y);
+
 		context.drawImage(
 			this.bitmap ? this.bitmap : this.sheet,
 			x, y, 
@@ -189,6 +189,8 @@ class Sprite { //@@@ extends HTMLElement {
 			this.canvasX, this.canvasY,
 			this.spriteWidth, this.canvas.height);
 		this.drawFrame = frame;
+
+		context.setTransform(1, 0, 0, 1, 0, 0);
 	}
 
 	play(start, range) {
@@ -377,7 +379,8 @@ class Sprite { //@@@ extends HTMLElement {
 			oncomplete: null,	//function() {}
 			onload: null,		//function() {}
 			onframe: null,		//function(frame) {}
-			mouseOverZoom : element.getAttribute("mouse-over-zoom") != undefined,
+
+			mouseOverZoom : element.getAttribute("mouse-over-zoom"),
 		};
 
 		//convert to actual bool
@@ -444,9 +447,9 @@ class Sprite { //@@@ extends HTMLElement {
 		}.bind(this));
 	}
 
-	addMouseOverZoom() {
-		var moveFunc = function(e) {
-			var scale = 0.5;
+	addMouseOverZoom(scale) {
+		var moveFunc = function(e) {			
+			var invScale = 1.0/scale;
 			
 			var rect = this.canvas.getBoundingClientRect();			
 			var sw = this.spriteWidth;
@@ -454,23 +457,24 @@ class Sprite { //@@@ extends HTMLElement {
 			var sx = e.clientX - rect.left;
 			var sy = e.clientY - rect.top;
 
-			sx -= scale * sw * 0.5;
-			sy -= scale * sh * 0.5;
+			sx -= invScale * sw * 0.5;
+			sy -= invScale * sh * 0.5;
 
 			sx = Math.max(0, sx);
-			sx = Math.min(sx, sw - scale * sw);
+			sx = Math.min(sx, sw - invScale * sw);
 			
 			sy = Math.max(0, sy);
-			sy = Math.min(sy, sh - scale * sh);
+			sy = Math.min(sy, sh - invScale * sh);
 
 			sx = Math.floor(0.5 + sx);
 			sy = Math.floor(0.5 + sy);
 		
 			this.zoomFrame.x = sx;
 			this.zoomFrame.y = sy;
-			this.zoomFrame.scale = scale;
 
-			this.draw(this.drawFrame);
+			this.zoomFrame.scale = scale;
+		
+			this.draw(this.drawFrame);			
 		}.bind(this);
 		this.canvas.addEventListener("mousemove", moveFunc,{passive:true});
 		this.canvas.addEventListener("touchmove", moveFunc,{passive:true});
