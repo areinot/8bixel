@@ -25,6 +25,15 @@ button:hover {
 </script>
 -->
 
+<div class="slide-show" style="width: 980px; height: 256px; border:1px solid cyan">
+	<img src="layer0.png"></img>
+	<img src="https://areinot.github.io/8bixel/lighthouse.png"></img>
+	<img src="sunsheet.png"></img>
+	<img src="jebsheet.png"></img>
+</div>
+
+<div style="height: 400px"></div>
+
 <div style="border:1px solid red; height:140px">
 <!-- Layers -->
 	<span>
@@ -141,5 +150,39 @@ button:hover {
 	}
 </script>
 
+
+<!--Gallery -->
+<script>
+
+	class SlideShow {		
+		constructor(el) {			
+			this.init(el);
+		}
+
+		init(el) {
+			this.style = this.style || {};
+			this.style.overflow = "hidden";
+			this.slides = [];
+
+			for(var i=0; i<el.childNodes.length; ++i) {
+				var child = el.childNodes[i];
+				if(child.tagName == "IMG") {
+
+					child.style = {};
+					child.style.position = "absolute";
+					var frac = 100.0 / el.childNodes.length;
+					child.style.left = i * frac + "%";					
+					this.slides.push(child);
+				}
+			}
+		}
+	}
+
+	var shows = [];
+	Array.prototype.filter.call( document.getElementsByClassName("slide-show"), function(el) {
+		this.push(new SlideShow(el));
+	}.bind(shows));
+
+</script>
 </body>
 </html>
